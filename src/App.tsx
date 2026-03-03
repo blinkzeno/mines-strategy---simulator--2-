@@ -1,0 +1,392 @@
+import { useState, useEffect } from "react";
+import {
+  LayoutDashboard,
+  Gamepad2,
+  History as HistoryIcon,
+  Settings,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import Dashboard from "./components/Dashboard";
+import Simulator from "./components/Simulator";
+import { AppState, GameRecord } from "./types";
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<"dashboard" | "simulator">(
+    "dashboard",
+  );
+  const [state, setState] = useState<AppState>(() => {
+    const defaultState: AppState = {
+      realBalance: 50000,
+      initialRealBalance: 50000,
+      defaultCapital: 50000,
+      sessionStartBalance: 50000,
+      dailyGoal: 3000,
+      sessionGoal: 1500,
+      sessionsCompleted: 0,
+      stopLoss: 5000,
+      baseBet: 500,
+      martingaleFactor: 1.5,
+      history: [],
+      virtualBalance: 100000,
+      turnsToday: 0,
+    };
+    const saved = localStorage.getItem("mines_pro_state");
+    if (saved) {
+      try {
+        return { ...defaultState, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaultState;
+      }
+    }
+    return defaultState;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("mines_pro_state", JSON.stringify(state));
+  }, [state]);
+
+  const addGameRecord = (record: GameRecord) => {
+    setState((prev) => {
+      const newBalance =
+        prev.realBalance +
+        (record.type === "win" ? record.profit : -record.amount);
+      // Protection: balance should never be 0 or negative
+      const safeBalance = Math.max(1, newBalance);
+
+      return {
+        ...prev,
+        history: [record, ...prev.history].slice(0, 50),
+        realBalance: safeBalance,
+        turnsToday: prev.turnsToday + 1,
+      };
+    });
+  };
+
+  const updateVirtualBalance = (amount: number) => {
+    setState((prev) => ({
+      ...prev,
+      virtualBalance: prev.virtualBalance + amount,
+    }));
+  };
+
+  const updateState = (updates: Partial<AppState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  };
+
+  return (
+    <div className="min-h-screen bg-[#080b12] text-[#cdd3e8] font-sans selection:bg-indigo-500/30">
+      {/* Top Navigation */}
+      <header className="sticky top-0 z-50 bg-[#080b12]/80 backdrop-blur-md border-b border-[#252d45] px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
+            <LayoutDashboard className="w-5 h-5 text-black" />
+          </div>
+          <h1 className="font-bold tracking-tight text-white">
+            MINES<span className="text-orange-500">PRO</span>
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {(import.meta as any).env.DEV && (
+            <button
+              onClick={() =>
+                updateState({ devModeEnabled: !state.devModeEnabled })
+              }
+              className={`px-2 py-1 rounded-md border text-[9px] font-bold uppercase transition-all flex items-center gap-1.5 ${
+                state.devModeEnabled
+                  ? "bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]"
+                  : "bg-[#141828] border-[#252d45] text-[#4a5578]"
+              }`}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${state.devModeEnabled ? "bg-indigo-400 animate-pulse" : "bg-[#4a5578]"}`}
+              />
+              Dev Mode
+            </button>
+          )}
+          <div className="text-right">
+            <p className="text-[10px] text-[#4a5578] font-mono tracking-widest uppercase text-[8px]">
+              Solde Réel
+            </p>
+            <p className="text-sm font-bold text-amber-400">
+              {(state.realBalance || 0).toLocaleString()} F
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main className="pb-24 max-w-md mx-auto px-4 pt-4">
+        <AnimatePresence mode="wait">
+          {activeTab === "dashboard" ? (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Dashboard
+                state={state}
+                onAddRecord={addGameRecord}
+                onUpdateState={updateState}
+              />
+            </motion.div>
+          ) : activeTab === "simulator" ? (
+            <motion.div
+              key="simulator"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Simulator
+                virtualBalance={state.virtualBalance}
+                onUpdateBalance={updateVirtualBalance}
+              />
+            </motion.div>
+          ) : activeTab === "history" ? (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="space-y-4">
+                <div className="bg-[#141828] border border-[#252d45] rounded-2xl p-5">
+                  <h2 className="font-bold text-sm uppercase tracking-tight mb-4">
+                    Historique Complet
+                  </h2>
+                  <div className="space-y-2">
+                    {state.history.length > 0 ? (
+                      state.history.map((record) => (
+                        <div
+                          key={record.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-[#252d45] bg-[#0e1220]"
+                        >
+                          <div>
+                            <p
+                              className={`text-[10px] font-bold uppercase ${record.type === "win" ? "text-emerald-400" : "text-rose-400"}`}
+                            >
+                              {record.type === "win" ? "Gagné" : "Perdu"}
+                            </p>
+                            <p className="text-[8px] text-[#4a5578] font-mono">
+                              {new Date(record.timestamp).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p
+                              className={`text-xs font-bold ${record.type === "win" ? "text-emerald-400" : "text-rose-400"}`}
+                            >
+                              {record.type === "win"
+                                ? `+${record.profit.toLocaleString()}`
+                                : `-${record.amount.toLocaleString()}`}{" "}
+                              F
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-xs text-[#4a5578] py-8">
+                        Aucun historique
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="bg-[#141828] border border-[#252d45] rounded-2xl p-5 space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Settings className="w-5 h-5 text-indigo-400" />
+                  <h2 className="font-bold text-sm uppercase tracking-tight">
+                    Réglages Généraux
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-[#4a5578] uppercase font-mono mb-1 block">
+                      Clé API Gemini Personnalisée
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Laissez vide pour utiliser la clé par défaut"
+                      value={state.customApiKey || ""}
+                      onChange={(e) =>
+                        updateState({ customApiKey: e.target.value })
+                      }
+                      className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-4 py-3 text-sm focus:border-orange-500 outline-none transition-colors font-mono"
+                    />
+                    <p className="text-[9px] text-[#4a5578] mt-2 leading-relaxed italic">
+                      Cette clé sera utilisée pour les fonctionnalités d'analyse
+                      de capture d'écran et de recommandations stratégiques.
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-[#252d45] space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HistoryIcon className="w-4 h-4 text-amber-400" />
+                      <h3 className="font-bold text-[10px] uppercase tracking-wider text-[#4a5578]">
+                        Stratégie & Bankroll
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5 opacity-80">
+                        <label className="text-[10px] text-[#4a5578] uppercase font-mono">
+                          Capital de Base (F)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={state.defaultCapital}
+                            readOnly
+                            className="w-full bg-[#0e1220]/50 border border-[#252d45] rounded-xl px-4 py-3 text-[#4a5578] font-bold outline-none cursor-not-allowed"
+                          />
+                        </div>
+                        <p className="text-[7px] text-amber-500/70 font-bold uppercase tracking-wider italic">
+                          ℹ️ Modifiable uniquement via "Reset Total"
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-[#4a5578] uppercase font-mono mb-1 block">
+                          Mise Base (F)
+                        </label>
+                        <input
+                          type="number"
+                          value={state.baseBet || 500}
+                          onChange={(e) =>
+                            updateState({
+                              baseBet: parseFloat(e.target.value) || 500,
+                            })
+                          }
+                          className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-3 py-2 text-xs focus:border-indigo-500 outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-[#4a5578] uppercase font-mono mb-1 block">
+                          Stop-Loss (F)
+                        </label>
+                        <input
+                          type="number"
+                          value={state.stopLoss || 5000}
+                          onChange={(e) =>
+                            updateState({
+                              stopLoss: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-3 py-2 text-xs focus:border-rose-500 outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-[#4a5578] uppercase font-mono mb-1 block">
+                          Objectif Session (F)
+                        </label>
+                        <input
+                          type="number"
+                          value={state.sessionGoal || 1500}
+                          onChange={(e) =>
+                            updateState({
+                              sessionGoal: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-3 py-2 text-xs focus:border-indigo-500 outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-[#4a5578] uppercase font-mono mb-1 block">
+                          Facteur Martingale
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={state.martingaleFactor || 1.5}
+                          onChange={(e) =>
+                            updateState({
+                              martingaleFactor:
+                                parseFloat(e.target.value) || 1.5,
+                            })
+                          }
+                          className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-3 py-2 text-xs focus:border-indigo-500 outline-none transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-[#252d45]">
+                    <button
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Réinitialiser toutes les données de l'application ?",
+                          )
+                        ) {
+                          localStorage.removeItem("mines_pro_state");
+                          window.location.reload();
+                        }
+                      }}
+                      className="w-full py-3 rounded-xl border border-rose-500/30 text-rose-500 text-[10px] font-bold uppercase tracking-widest hover:bg-rose-500/10 transition-colors"
+                    >
+                      Effacer toutes les données
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0e1220] border-t border-[#252d45] px-6 py-3 flex justify-around items-center z-50">
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === "dashboard" ? "text-orange-500" : "text-[#4a5578]"}`}
+        >
+          <LayoutDashboard className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">
+            Stratégie
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("simulator")}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === "simulator" ? "text-orange-500" : "text-[#4a5578]"}`}
+        >
+          <Gamepad2 className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">
+            Simulateur
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === "history" ? "text-orange-500" : "text-[#4a5578]"}`}
+        >
+          <HistoryIcon className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">
+            Historique
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("settings")}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === "settings" ? "text-orange-500" : "text-[#4a5578]"}`}
+        >
+          <Settings className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">
+            Réglages
+          </span>
+        </button>
+      </nav>
+    </div>
+  );
+}

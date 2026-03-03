@@ -1,0 +1,7 @@
+{
+  "name": "Mines Strategy & Simulator",
+  "description": "Simulation et assistance stratégique pour le jeu Mines. Suivi de capital réel et mode entraînement virtuel.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
