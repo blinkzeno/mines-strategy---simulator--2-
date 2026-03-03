@@ -4,6 +4,7 @@ import {
   Gamepad2,
   History as HistoryIcon,
   Settings,
+  Calendar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Dashboard from "./components/Dashboard";
@@ -87,23 +88,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-3">
-          {(import.meta as any).env.DEV && (
-            <button
-              onClick={() =>
-                updateState({ devModeEnabled: !state.devModeEnabled })
-              }
-              className={`px-2 py-1 rounded-md border text-[9px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                state.devModeEnabled
-                  ? "bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]"
-                  : "bg-[#141828] border-[#252d45] text-[#4a5578]"
-              }`}
-            >
-              <div
-                className={`w-1.5 h-1.5 rounded-full ${state.devModeEnabled ? "bg-indigo-400 animate-pulse" : "bg-[#4a5578]"}`}
-              />
-              Dev Mode
-            </button>
-          )}
           <div className="text-right">
             <p className="text-[10px] text-[#4a5578] font-mono tracking-widest uppercase text-[8px]">
               Solde Réel
@@ -155,40 +139,94 @@ export default function App() {
               <div className="space-y-4">
                 <div className="bg-[#141828] border border-[#252d45] rounded-2xl p-5">
                   <h2 className="font-bold text-sm uppercase tracking-tight mb-4">
-                    Historique Complet
+                    Historique des Sessions
                   </h2>
-                  <div className="space-y-2">
-                    {state.history.length > 0 ? (
-                      state.history.map((record) => (
+                  <div className="space-y-4">
+                    {state.sessionHistory && state.sessionHistory.length > 0 ? (
+                      [...state.sessionHistory].reverse().map((session) => (
                         <div
-                          key={record.id}
-                          className="flex items-center justify-between p-3 rounded-xl border border-[#252d45] bg-[#0e1220]"
+                          key={session.id}
+                          className="flex flex-col p-4 rounded-xl border border-[#252d45] bg-[#0e1220] space-y-3"
                         >
-                          <div>
-                            <p
-                              className={`text-[10px] font-bold uppercase ${record.type === "win" ? "text-emerald-400" : "text-rose-400"}`}
+                          <div className="flex justify-between items-center border-b border-[#252d45] pb-2">
+                            <span className="text-xs font-bold text-white uppercase flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-indigo-400" />
+                              {new Date(session.timestamp).toLocaleDateString(
+                                "fr-FR",
+                                {
+                                  weekday: "long",
+                                  day: "numeric",
+                                  month: "short",
+                                },
+                              )}
+                              <span className="text-[10px] text-[#4a5578] font-mono lowercase">
+                                •{" "}
+                                {new Date(session.timestamp).toLocaleTimeString(
+                                  "fr-FR",
+                                  { hour: "2-digit", minute: "2-digit" },
+                                )}
+                              </span>
+                            </span>
+                            <span
+                              className={`text-xs font-bold ${session.profit >= 0 ? "text-emerald-400" : "text-rose-400"}`}
                             >
-                              {record.type === "win" ? "Gagné" : "Perdu"}
-                            </p>
-                            <p className="text-[8px] text-[#4a5578] font-mono">
-                              {new Date(record.timestamp).toLocaleString()}
-                            </p>
+                              {session.profit >= 0 ? "+" : ""}
+                              {session.profit.toLocaleString()} F
+                            </span>
                           </div>
-                          <div className="text-right">
-                            <p
-                              className={`text-xs font-bold ${record.type === "win" ? "text-emerald-400" : "text-rose-400"}`}
-                            >
-                              {record.type === "win"
-                                ? `+${record.profit.toLocaleString()}`
-                                : `-${record.amount.toLocaleString()}`}{" "}
-                              F
-                            </p>
+
+                          <div className="grid grid-cols-2 gap-4 text-[10px] font-mono">
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Solde Initial
+                              </span>
+                              <span className="text-white font-bold">
+                                {session.startBalance?.toLocaleString() || 0} F
+                              </span>
+                            </div>
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50 text-right">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Solde Final
+                              </span>
+                              <span className="text-white font-bold">
+                                {session.endBalance?.toLocaleString() || 0} F
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Tours Joués
+                              </span>
+                              <span className="text-white font-bold">
+                                {session.turns}
+                              </span>
+                            </div>
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50 text-right">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Pertes Max
+                              </span>
+                              <span className="text-rose-400 font-bold">
+                                {session.maxConsecutiveLosses || 0} consécutives
+                              </span>
+                            </div>
+
+                            <div className="col-span-2 flex justify-between items-center bg-rose-500/5 p-2 rounded-lg border border-rose-500/10">
+                              <span className="text-[#4a5578] uppercase font-bold">
+                                Perte Cumulée Max
+                              </span>
+                              <span className="text-rose-400 font-black">
+                                -
+                                {session.maxCumulativeLoss?.toLocaleString() ||
+                                  0}{" "}
+                                F
+                              </span>
+                            </div>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <p className="text-center text-xs text-[#4a5578] py-8">
-                        Aucun historique
+                      <p className="text-center text-xs text-[#4a5578] py-8 border border-dashed border-[#252d45] rounded-xl bg-[#0e1220]">
+                        Aucune session complétée
                       </p>
                     )}
                   </div>

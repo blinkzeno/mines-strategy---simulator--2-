@@ -255,21 +255,40 @@ export default function Dashboard({
     : false;
 
   const isBlocked =
-    !state.devModeEnabled &&
-    (isSessionGoalReached ||
-      isDailyGoalReached ||
-      isStopLossReached ||
-      isTurnLimitReached ||
-      isWaitingForNextSession);
+    isSessionGoalReached ||
+    isDailyGoalReached ||
+    isStopLossReached ||
+    isTurnLimitReached ||
+    isWaitingForNextSession;
 
   const handleResetSession = () => {
-    // If daily goal reached, force to 2 sessions to trigger the "tomorrow 5 AM" timer
-    const newSessionsCompleted = isDailyGoalReached
-      ? 2
-      : isSessionGoalReached
-        ? state.sessionsCompleted + 1
-        : state.sessionsCompleted;
+    // If daily goal reached or stop loss reached, force to 2 sessions to trigger the "tomorrow 5 AM" timer
+    const newSessionsCompleted =
+      isDailyGoalReached || isStopLossReached
+        ? 2
+        : isSessionGoalReached
+          ? state.sessionsCompleted + 1
+          : state.sessionsCompleted;
     const nextStart = calculateNextSessionTime(newSessionsCompleted);
+
+    let maxConsLosses = 0;
+    let maxCumLoss = 0;
+    let currentConsLosses = 0;
+    let currentCumLoss = 0;
+
+    for (let i = state.history.length - 1; i >= 0; i--) {
+      const record = state.history[i];
+      if (record.type === "lose") {
+        currentConsLosses++;
+        currentCumLoss += record.amount;
+        if (currentConsLosses > maxConsLosses)
+          maxConsLosses = currentConsLosses;
+        if (currentCumLoss > maxCumLoss) maxCumLoss = currentCumLoss;
+      } else {
+        currentConsLosses = 0;
+        currentCumLoss = 0;
+      }
+    }
 
     const summary: SessionSummary = {
       id: Math.random().toString(36).substr(2, 9),
@@ -281,6 +300,10 @@ export default function Dashboard({
           ? "goal"
           : "manual",
       turns: state.history.length,
+      startBalance: state.sessionStartBalance,
+      endBalance: state.realBalance,
+      maxConsecutiveLosses: maxConsLosses,
+      maxCumulativeLoss: maxCumLoss,
     };
 
     onUpdateState({
@@ -439,18 +462,6 @@ export default function Dashboard({
                         {timeLeft}
                       </p>
                     </div>
-
-                    {(import.meta as any).env.DEV && (
-                      <button
-                        onClick={() =>
-                          onUpdateState({ nextSessionStartTime: undefined })
-                        }
-                        className="w-full py-3 rounded-xl border border-indigo-500/50 text-indigo-400 text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-500/10 transition-all flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw className="w-3 h-3 animate-spin-slow" />
-                        Bypass Timer (DEV MODE)
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -471,14 +482,6 @@ export default function Dashboard({
       {/* Capital Overview */}
       <section className="bg-[#141828] border border-[#252d45] rounded-2xl p-5 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-        {state.devModeEnabled && (
-          <div className="absolute top-2 right-2 z-20">
-            <span className="px-2 py-0.5 bg-indigo-500 text-white text-[8px] font-bold rounded flex items-center gap-1 shadow-lg shadow-indigo-500/20">
-              <RefreshCw className="w-2 h-2 animate-spin-slow" />
-              UNLIMITED DEV MODE
-            </span>
-          </div>
-        )}
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] text-[#4a5578] font-mono uppercase tracking-[0.2em]">

@@ -15,6 +15,10 @@ export interface SessionSummary {
   profit: number;
   endReason: 'goal' | 'stop-loss' | 'manual';
   turns: number;
+  startBalance: number;
+  endBalance: number;
+  maxConsecutiveLosses: number;
+  maxCumulativeLoss: number;
 }
 
 export interface AppState {
@@ -33,7 +37,6 @@ export interface AppState {
   customApiKey?: string;
   lastSessionEndTime?: number;
   nextSessionStartTime?: number;
-  devModeEnabled?: boolean;
   defaultCapital: number;
   sessionStartBalance: number;
 }
