@@ -21,6 +21,15 @@ export interface SessionSummary {
   maxCumulativeLoss: number;
 }
 
+export interface WithdrawalRecord {
+  id: string;
+  timestamp: number;
+  amount: number;
+  method: 'bank_transfer' | 'mobile_money' | 'crypto';
+  status: 'pending' | 'completed' | 'failed';
+  notes?: string;
+}
+
 export interface AppState {
   realBalance: number;
   initialRealBalance: number;
@@ -39,6 +48,16 @@ export interface AppState {
   nextSessionStartTime?: number;
   defaultCapital: number;
   sessionStartBalance: number;
+  withdrawalHistory?: WithdrawalRecord[];
+  // Prediction mode
+  useRandomPrediction?: boolean;
+  // Withdrawal tracking
+  lastWithdrawalDate?: number;
+  withdrawalCycleStart?: number;
+  withdrawalCycleGains?: number;
+  // Stop-loss tracking
+  stopLossActive?: boolean;
+  stopLossRecoveredAt?: number;
 }
 
 export interface PredictionResult {

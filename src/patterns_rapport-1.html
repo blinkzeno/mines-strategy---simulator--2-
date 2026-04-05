@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Simulation Patterns — Résultats</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+:root{
+  --bg:#070a10;--s1:#0c1018;--s2:#111620;--s3:#18202e;
+  --bd:#1e2d45;--gold:#f5c840;--glow:rgba(245,200,64,.12);
+  --green:#0fd968;--gdim:rgba(15,217,104,.09);
+  --red:#f03548;--rdim:rgba(240,53,72,.09);
+  --blue:#3b8cff;--bdim:rgba(59,140,255,.09);
+  --orange:#ff8c30;--odim:rgba(255,140,48,.09);
+  --text:#c8d4e8;--muted:#3d5272;--muted2:#6b82a0;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;padding-bottom:60px;}
+
+.hero{padding:40px 20px 30px;text-align:center;border-bottom:1px solid var(--bd);
+  background:linear-gradient(160deg,#0a0d18,var(--bg));}
+.pill{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.6rem;
+  letter-spacing:2px;margin-bottom:14px;}
+.pill.g{background:var(--gdim);border:1px solid rgba(15,217,104,.3);color:var(--green);}
+.pill.r{background:var(--rdim);border:1px solid rgba(240,53,72,.3);color:var(--red);}
+.pill.b{background:var(--bdim);border:1px solid rgba(59,140,255,.3);color:var(--blue);}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(1.6rem,5vw,2.4rem);font-weight:800;
+  line-height:1.2;margin-bottom:8px;}
+.hero h1 em{font-style:normal;color:var(--gold);}
+.hero-sub{font-size:.78rem;color:var(--muted2);max-width:500px;margin:0 auto 20px;line-height:1.6;}
+.hero-stats{display:flex;justify-content:center;gap:28px;flex-wrap:wrap;}
+.hs{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.hs-v{font-size:1.2rem;font-weight:700;}
+.hs-l{font-size:.46rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+
+.page{max-width:860px;margin:0 auto;padding:0 16px;}
+.sec{margin-top:36px;}
+.sh{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.sn{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-size:.62rem;font-weight:700;flex-shrink:0;}
+.sn.r{background:var(--rdim);border:1px solid rgba(240,53,72,.3);color:var(--red);}
+.sn.g{background:var(--gdim);border:1px solid rgba(15,217,104,.3);color:var(--green);}
+.sn.o{background:var(--odim);border:1px solid rgba(255,140,48,.3);color:var(--orange);}
+.sn.b{background:var(--bdim);border:1px solid rgba(59,140,255,.3);color:var(--blue);}
+.sn.gd{background:var(--glow);border:1px solid rgba(245,200,64,.3);color:var(--gold);}
+.st{font-size:.68rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.sh::after{content:'';flex:1;height:1px;background:var(--bd);}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+@media(max-width:540px){.g2,.g3{grid-template-columns:1fr;}}
+
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;}
+.ct{font-size:.5rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.cv{font-size:1.4rem;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;}
+.cs{font-size:.58rem;color:var(--muted2);margin-top:3px;line-height:1.5;}
+
+/* Grille 5×5 */
+.grid-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:8px;}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;max-width:320px;width:100%;}
+.gcell{
+  aspect-ratio:1;border-radius:7px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-size:.6rem;font-weight:700;
+  border:1px solid var(--bd);background:var(--s2);position:relative;
+  transition:all .2s;
+}
+.gcell .gidx{position:absolute;top:2px;left:3px;font-size:.38rem;color:var(--muted);}
+.gcell .gpct{font-size:.6rem;font-weight:700;}
+.gcell .gbar{position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 6px 6px;}
+.gcell.best{border-color:rgba(15,217,104,.4);background:rgba(15,217,104,.06);}
+.gcell.worst{border-color:rgba(240,53,72,.2);background:rgba(240,53,72,.04);}
+.gcell.selected{border-color:var(--gold);background:var(--glow);}
+
+/* Patterns table */
+.ptable{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid var(--bd);}
+.ptable th{background:var(--s2);padding:7px 10px;text-align:left;font-size:.5rem;
+  color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--bd);}
+.ptable td{padding:7px 10px;font-size:.64rem;border-bottom:1px solid #111a28;}
+.ptable tr:last-child td{border-bottom:none;}
+.ptable tr:hover td{background:rgba(255,255,255,.015);}
+.rank{color:var(--muted);font-size:.58rem;}
+.cells-val{color:var(--gold);font-weight:700;letter-spacing:1px;}
+.score-bar-wrap{width:80px;height:6px;background:var(--s3);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;}
+.score-bar{height:100%;border-radius:3px;background:var(--green);}
+
+/* Named patterns */
+.np-card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;
+  padding:14px 16px;margin-bottom:8px;display:flex;gap:14px;align-items:flex-start;}
+.np-rank{
+  width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:2px;
+}
+.np-body{}
+.np-name{font-size:.75rem;font-weight:700;margin-bottom:4px;}
+.np-cases{font-size:.62rem;color:var(--gold);margin-bottom:3px;font-weight:700;letter-spacing:1px;}
+.np-stats{display:flex;gap:10px;margin-bottom:4px;}
+.np-stat{font-size:.55rem;color:var(--muted2);}
+.np-stat span{color:var(--text);font-weight:700;}
+.np-desc{font-size:.6rem;color:var(--muted2);line-height:1.5;}
+.np-mini{display:grid;grid-template-columns:repeat(5,14px);grid-template-rows:repeat(5,14px);gap:1.5px;flex-shrink:0;}
+.np-c{width:14px;height:14px;border-radius:2px;background:var(--s3);border:1px solid var(--bd);}
+.np-c.on{background:var(--gold);border-color:var(--gold);}
+
+/* Verdict */
+.verdict{
+  background:var(--s1);border:2px solid;border-radius:14px;
+  padding:18px 20px;position:relative;overflow:hidden;margin-top:10px;
+}
+.verdict::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.verdict.b{border-color:rgba(59,140,255,.4);}
+.verdict.b::before{background:linear-gradient(90deg,transparent,var(--blue),transparent);}
+.verdict.g{border-color:rgba(15,217,104,.4);}
+.verdict.g::before{background:linear-gradient(90deg,transparent,var(--green),transparent);}
+.verdict p{font-size:.72rem;line-height:1.85;margin-bottom:10px;}
+.verdict p:last-child{margin-bottom:0;}
+
+/* Zone bars */
+.zrow{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.zlbl{font-size:.58rem;color:var(--muted2);width:90px;flex-shrink:0;}
+.ztrack{flex:1;height:7px;background:var(--s3);border-radius:3px;overflow:hidden;}
+.zfill{height:100%;border-radius:3px;}
+.zval{font-size:.58rem;font-weight:700;width:60px;text-align:right;}
+
+/* Alert */
+.al{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:9px;
+  margin-bottom:8px;font-size:.65rem;line-height:1.6;border:1px solid;}
+.al.b{background:var(--bdim);border-color:rgba(59,140,255,.3);color:var(--blue);}
+.al.r{background:var(--rdim);border-color:rgba(240,53,72,.3);color:var(--red);}
+.al.g{background:var(--gdim);border-color:rgba(15,217,104,.3);color:var(--green);}
+.al.o{background:var(--odim);border-color:rgba(255,140,48,.3);color:var(--orange);}
+.al strong{font-weight:700;}
+
+.footer{margin-top:40px;border-top:1px solid var(--bd);padding:18px 16px;
+  text-align:center;font-size:.54rem;color:var(--muted);line-height:2;
+  max-width:860px;margin-left:auto;margin-right:auto;}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="pill g">✅ SIMULATION PYTHON COMPLÈTE — RÉSULTATS RÉELS</div>
+  <h1>Analyse <em>exhaustive</em> des<br>177 100 patterns possibles</h1>
+  <div class="hero-sub">2 000 000 de parties simulées · Tous les C(25,6) patterns évalués · 3 mines · 6 cases à révéler</div>
+  <div class="hero-stats">
+    <div class="hs"><span class="hs-v" style="color:var(--gold)">2 000 000</span><span class="hs-l">Parties simulées</span></div>
+    <div class="hs"><span class="hs-v" style="color:var(--green)">177 100</span><span class="hs-l">Patterns analysés</span></div>
+    <div class="hs"><span class="hs-v" style="color:var(--gold)">×2.281</span><span class="hs-l">Multiplicateur</span></div>
+    <div class="hs"><span class="hs-v" style="color:var(--green)">42.13%</span><span class="hs-l">P(succès)</span></div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- 01 TAUX PAR CASE -->
+  <div class="sec">
+    <div class="sh"><div class="sn b">01</div><span class="st">Taux de sécurité par case — grille réelle</span></div>
+    <div class="al b">
+      <span>🔬</span>
+      <span>Sur 2 000 000 parties, chaque case a été observée. Voici son taux de sécurité réel mesuré. Théorie : toutes doivent être à exactement <strong>88.00%</strong>.</span>
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <div class="ct">TAUX DE SÉCURITÉ PAR CASE (% de ne pas avoir de mine)</div>
+      <div class="grid-wrap">
+        <div class="grid5" id="grid5"></div>
+        <div style="display:flex;gap:16px;font-size:.56rem;color:var(--muted2);">
+          <span><span style="color:var(--green);font-weight:700">■</span> &gt; 88.03% (au-dessus moy)</span>
+          <span><span style="color:var(--text);font-weight:700">■</span> ~88.00% (normal)</span>
+          <span><span style="color:var(--red);font-weight:700">■</span> &lt; 87.97% (en dessous)</span>
+        </div>
+      </div>
+    </div>
+    <div class="g2" style="margin-top:10px;">
+      <div class="card">
+        <div class="ct">Taux moyen observé</div>
+        <div class="cv" style="color:var(--text)">88.000%</div>
+        <div class="cs">Théorie exacte : 88.000% ✓<br>Correspondance parfaite</div>
+      </div>
+      <div class="card">
+        <div class="ct">Variance case à case</div>
+        <div class="cv" style="color:var(--orange)">±0.025%</div>
+        <div class="cs">Écart-type mesuré : 0.0246%<br>Pure variance statistique</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 TOP 20 PATTERNS -->
+  <div class="sec">
+    <div class="sh"><div class="sn gd">02</div><span class="st">TOP 20 patterns — classement global</span></div>
+    <div class="al o">
+      <span>📐</span>
+      <span>Score = <strong>50% sécurité empirique + 30% dispersion spatiale + 20% diversité de zones.</strong> Le critère dominant est la dispersion — les cases les plus éloignées les unes des autres.</span>
+    </div>
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--bd);margin-top:10px;">
+      <table class="ptable" id="top20table"></table>
+    </div>
+  </div>
+
+  <!-- 03 MINI GRILLES TOP 5 -->
+  <div class="sec">
+    <div class="sh"><div class="sn gd">03</div><span class="st">Visualisation des 3 meilleurs patterns</span></div>
+    <div id="top3-grids"></div>
+  </div>
+
+  <!-- 04 PATTERNS NOMMÉS -->
+  <div class="sec">
+    <div class="sh"><div class="sn g">04</div><span class="st">Patterns nommés — les 10 à connaître</span></div>
+    <div id="named-patterns"></div>
+  </div>
+
+  <!-- 05 ANALYSE PAR ZONE -->
+  <div class="sec">
+    <div class="sh"><div class="sn b">05</div><span class="st">Score moyen par combinaison de zones</span></div>
+    <div class="card">
+      <div id="zone-bars"></div>
+    </div>
+  </div>
+
+  <!-- 06 VERDICT MATHÉMATIQUE -->
+  <div class="sec">
+    <div class="sh"><div class="sn r">06</div><span class="st">Verdict mathématique</span></div>
+
+    <div class="verdict b">
+      <p><strong style="color:var(--blue)">Ce que 2 millions de parties + 177 100 patterns confirment :</strong><br>
+      L'écart entre le meilleur et le pire pattern en termes de probabilité pure est de <strong style="color:var(--gold)">0.062%</strong> — soit 62 millièmes de pourcent. C'est de la variance statistique, pas un signal exploitable.</p>
+      <p><strong style="color:var(--red)">Sur un RNG certifié, toutes les combinaisons de 6 cases ont EXACTEMENT la même probabilité de succès : 42.13%.</strong> Il n'existe aucun "pattern gagnant" dans le sens probabiliste du terme.</p>
+    </div>
+
+    <div class="verdict g" style="margin-top:10px;">
+      <p><strong style="color:var(--green)">Ce qui compte vraiment : la DISPERSION SPATIALE.</strong><br>
+      Le seul critère objectif qui différencie les patterns est la distance entre les cases choisies. Un pattern dispersé te donne la même probabilité de gagner — mais il réduit le risque de révéler plusieurs cases dans une zone dense où une mine est placée, ce qui peut te faire perdre plus tôt dans la séquence.</p>
+      <p><strong style="color:var(--gold)">MEILLEUR PATTERN RECOMMANDÉ : Cases 1-2-5-21-24-25</strong><br>
+      (coins opposés + bords intermédiaires) — dispersion maximale mesurée à 3.869 sur toute la grille.<br>
+      P(succès) : 42.13% · Multiplicateur : ×2.281 · Gain sur 500 F : <strong style="color:var(--green)">+640 F</strong></p>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Simulation Python — 2 000 000 parties Monte Carlo · Analyse exhaustive C(25,6) = 177 100 patterns · 3 mines · 6 étoiles cibles<br>
+  P(théorique) : 42.13% · Multiplicateur : ×2.281 · EV : −3.90% par mise
+</div>
+
+<script>
+// ── Données réelles de simulation ──
+const safeRates = [
+  88.01, 88.01, 87.98, 88.02, 87.99,
+  88.03, 87.98, 88.04, 88.00, 88.00,
+  88.01, 88.07, 87.99, 88.00, 88.02,
+  88.00, 87.99, 87.99, 87.96, 88.00,
+  87.96, 88.03, 87.98, 87.99, 87.96
+];
+
+const top20 = [
+  {rank:1,  cells:"1-4-5-21-22-25", emp:87.995, disp:3.869, score:0.90513},
+  {rank:2,  cells:"1-5-6-20-21-25", emp:87.991, disp:3.869, score:0.90511},
+  {rank:3,  cells:"1-5-10-16-21-25",emp:87.988, disp:3.869, score:0.90510},
+  {rank:4,  cells:"1-2-5-21-24-25", emp:87.987, disp:3.869, score:0.90510},
+  {rank:5,  cells:"1-5-10-21-22-25",emp:87.992, disp:3.854, score:0.90258},
+  {rank:6,  cells:"1-4-5-16-21-25", emp:87.990, disp:3.854, score:0.90258},
+  {rank:7,  cells:"1-5-6-21-24-25", emp:87.990, disp:3.854, score:0.90257},
+  {rank:8,  cells:"1-2-5-20-21-25", emp:87.988, disp:3.854, score:0.90256},
+  {rank:9,  cells:"1-2-5-21-22-25", emp:87.993, disp:3.837, score:0.89999},
+  {rank:10, cells:"1-5-6-10-21-25", emp:87.992, disp:3.837, score:0.89998},
+  {rank:11, cells:"1-4-5-21-24-25", emp:87.989, disp:3.837, score:0.89997},
+  {rank:12, cells:"1-5-16-20-21-25",emp:87.987, disp:3.837, score:0.89996},
+  {rank:13, cells:"1-5-6-15-21-25", emp:87.994, disp:3.834, score:0.89763},
+  {rank:14, cells:"1-5-15-16-21-25",emp:87.990, disp:3.834, score:0.89761},
+  {rank:15, cells:"1-5-10-11-21-25",emp:87.989, disp:3.834, score:0.89761},
+  {rank:16, cells:"1-3-5-21-22-25", emp:87.989, disp:3.834, score:0.89760},
+  {rank:17, cells:"1-5-11-20-21-25",emp:87.988, disp:3.834, score:0.89760},
+  {rank:18, cells:"1-4-5-21-23-25", emp:87.986, disp:3.834, score:0.89759},
+  {rank:19, cells:"1-2-5-21-23-25", emp:87.985, disp:3.834, score:0.89758},
+  {rank:20, cells:"1-3-5-21-24-25", emp:87.983, disp:3.834, score:0.89757},
+];
+
+const named = [
+  {name:"🏆 Coins Opposés",  cases:[1,4,5,21,22,25], rank:"#1 mondial", desc:"4 coins + 2 bords intermédiaires — dispersion maximale", rc:"var(--gold)"},
+  {name:"Z-Pattern",          cases:[1,2,5,21,24,25], rank:"#4 mondial", desc:"Coins haut + coins bas + bords — couvre toute la grille", rc:"var(--green)"},
+  {name:"Carré Externe",      cases:[1,3,5,21,24,25], rank:"~#20",       desc:"4 coins + 2 milieux bords — périmètre maximisé", rc:"var(--blue)"},
+  {name:"Anti-Cluster",       cases:[1,5,13,17,21,25],rank:"~#150",      desc:"Maximum de distance entre chaque paire de cases", rc:"var(--blue)"},
+  {name:"Diagonale+",         cases:[1,7,13,19,25,3], rank:"~#500",      desc:"Diagonale complète + bord — couvre toutes les zones", rc:"var(--muted2)"},
+  {name:"Croix Externe",      cases:[3,11,13,15,23,1],rank:"~#2000",     desc:"Bords du milieu en croix + coin — répartition en +", rc:"var(--muted2)"},
+  {name:"Étoile",             cases:[3,11,13,15,23,7],rank:"~#5000",     desc:"Centre + 4 directions cardinales — équilibré", rc:"var(--muted2)"},
+  {name:"Serpentin",          cases:[2,4,12,14,22,24],rank:"~#8000",     desc:"Alternance bords sur lignes différentes", rc:"var(--muted2)"},
+  {name:"L-Shape",            cases:[1,6,11,16,21,25],rank:"~#120000",   desc:"Colonne gauche + coin droit — couvre la hauteur", rc:"var(--muted2)"},
+  {name:"Diamant ❌",          cases:[7,9,13,17,19,12],rank:"~#172000",   desc:"Cases centrales groupées — ÉVITER (clustering)", rc:"var(--red)"},
+];
+
+const zones = [
+  {name:"Bord + Coin",         avg:0.80427, disp:3.199, c:"var(--green)"},
+  {name:"Bord seul",           avg:0.76977, disp:2.983, c:"var(--green)"},
+  {name:"Bord+Centre+Coin",    avg:0.76348, disp:2.932, c:"var(--gold)"},
+  {name:"Bord+Coin+Intérieur", avg:0.74361, disp:2.782, c:"var(--gold)"},
+  {name:"Bord+Centre",         avg:0.72998, disp:2.707, c:"var(--orange)"},
+  {name:"Coin+Intérieur",      avg:0.72128, disp:2.620, c:"var(--orange)"},
+  {name:"Tout mélangé",        avg:0.70987, disp:2.538, c:"var(--orange)"},
+  {name:"Bord+Intérieur",      avg:0.69869, disp:2.465, c:"var(--red)"},
+  {name:"Intérieur seul",      avg:0.60752, disp:1.757, c:"var(--red)"},
+  {name:"Centre+Intérieur",    avg:0.58706, disp:1.574, c:"var(--red)"},
+];
+
+// ── Grille 5×5 ──
+const g = document.getElementById('grid5');
+const mean = 88.00;
+safeRates.forEach((r,i) => {
+  const diff = r - mean;
+  const color = diff > 0.03 ? 'var(--green)' : diff < -0.03 ? 'var(--red)' : 'var(--text)';
+  const cls = diff > 0.03 ? 'best' : diff < -0.03 ? 'worst' : '';
+  const barW = ((r-87.9)/0.2*100).toFixed(0);
+  g.innerHTML += `<div class="gcell ${cls}">
+    <span class="gidx">${i+1}</span>
+    <span class="gpct" style="color:${color}">${r.toFixed(2)}</span>
+    <div class="gbar" style="width:${barW}%;background:${color};position:absolute;bottom:0;left:0;height:3px;border-radius:0 0 6px 6px;"></div>
+  </div>`;
+});
+
+// ── TOP 20 table ──
+const t = document.getElementById('top20table');
+t.innerHTML = `<thead><tr>
+  <th>Rang</th><th>Cases</th><th>P.sécurité</th><th>Dispersion</th><th>Score</th>
+</tr></thead>`;
+const tb = document.createElement('tbody');
+top20.forEach(p => {
+  const maxScore = 0.90513, minScore = 0.89757;
+  const pct = ((p.score-minScore)/(maxScore-minScore)*100).toFixed(0);
+  const c = p.rank <= 3 ? 'var(--gold)' : p.rank <= 10 ? 'var(--green)' : 'var(--text)';
+  tb.innerHTML += `<tr>
+    <td class="rank">#${p.rank}</td>
+    <td class="cells-val">${p.cells}</td>
+    <td style="color:var(--muted2)">${p.emp.toFixed(3)}%</td>
+    <td style="color:var(--blue)">${p.disp.toFixed(3)}</td>
+    <td><div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%;background:${c}"></div></div> <span style="color:${c};font-size:.6rem">${p.score.toFixed(5)}</span></td>
+  </tr>`;
+});
+t.appendChild(tb);
+
+// ── Top 3 mini grilles ──
+const top3W = document.getElementById('top3-grids');
+top20.slice(0,3).forEach((p, ri) => {
+  const cellNums = p.cells.split('-').map(Number);
+  const colors = ['var(--gold)','var(--green)','var(--blue)'];
+  let miniGrid = '';
+  for (let i = 0; i < 25; i++) {
+    const on = cellNums.includes(i+1);
+    miniGrid += `<div style="aspect-ratio:1;border-radius:4px;background:${on?colors[ri]:'var(--s3)'};border:1px solid ${on?colors[ri]+'60':'var(--bd)'};display:flex;align-items:center;justify-content:center;font-size:.45rem;color:${on?'#050401':'var(--muted)'}">${on?'⭐':''}</div>`;
+  }
+  top3W.innerHTML += `<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+    <div style="display:grid;grid-template-columns:repeat(5,32px);gap:3px;flex-shrink:0;">${miniGrid}</div>
+    <div>
+      <div style="font-size:.6rem;color:${colors[ri]};font-weight:700;margin-bottom:4px;">Rang #${p.rank} — Cases ${p.cells}</div>
+      <div style="font-size:.58rem;color:var(--muted2);line-height:1.7;">
+        Sécurité: <strong style="color:var(--text)">${p.emp.toFixed(3)}%</strong><br>
+        Dispersion: <strong style="color:var(--blue)">${p.disp.toFixed(3)}</strong><br>
+        Score combiné: <strong style="color:${colors[ri]}">${p.score.toFixed(5)}</strong>
+      </div>
+    </div>
+  </div>`;
+});
+
+// ── Patterns nommés ──
+const npW = document.getElementById('named-patterns');
+named.forEach(p => {
+  let mini = '';
+  for (let i = 0; i < 25; i++) {
+    const on = p.cases.includes(i+1);
+    mini += `<div class="np-c ${on?'on':''}"></div>`;
+  }
+  npW.innerHTML += `<div class="np-card">
+    <div style="display:grid;grid-template-columns:repeat(5,14px);gap:1.5px;flex-shrink:0;">${mini}</div>
+    <div style="flex:1;">
+      <div class="np-name" style="color:${p.rc}">${p.name}</div>
+      <div class="np-cases">Cases: ${p.cases.join('-')}</div>
+      <div style="font-size:.55rem;color:var(--muted2);margin-bottom:3px;">Rang global: <strong style="color:var(--text)">${p.rank}</strong></div>
+      <div class="np-desc">${p.desc}</div>
+    </div>
+  </div>`;
+});
+
+// ── Zone bars ──
+const zW = document.getElementById('zone-bars');
+const maxZ = Math.max(...zones.map(z=>z.avg));
+zones.forEach(z => {
+  const pct = (z.avg/maxZ*100).toFixed(0);
+  zW.innerHTML += `<div class="zrow">
+    <span class="zlbl">${z.name}</span>
+    <div class="ztrack"><div class="zfill" style="width:${pct}%;background:${z.c}"></div></div>
+    <span class="zval" style="color:${z.c}">${(z.avg*100).toFixed(2)}%</span>
+  </div>`;
+});
+</script>
+</body>
+</html>

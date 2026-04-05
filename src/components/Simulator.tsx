@@ -34,13 +34,8 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
 
   const currentMartingaleBet = Math.round(500 * Math.pow(1.5, consecutiveLosses));
 
-  const isSessionGoalReached = sessionProfit >= 1500;
-  const isStopLossReached = totalLostAmount >= 5000;
-  const isTurnLimitReached = turnsToday >= 30;
-  const isBlocked = isSessionGoalReached || isStopLossReached || isTurnLimitReached;
-
   const startGame = () => {
-    if (isBlocked || currentMartingaleBet > virtualBalance) return;
+    if (currentMartingaleBet > virtualBalance) return;
     
     onUpdateBalance(-currentMartingaleBet);
     // Mines count is fixed at 3 for this strategy simulation
@@ -151,7 +146,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
           </div>
           <div className="bg-[#0e1220] rounded-xl p-2 border border-[#252d45]">
             <p className="text-[8px] text-[#4a5578] uppercase font-mono">Tours</p>
-            <p className="text-xs font-bold text-white">{turnsToday}/30</p>
+            <p className="text-xs font-bold text-white">{turnsToday}</p>
           </div>
           <div className="bg-[#0e1220] rounded-xl p-2 border border-[#252d45]">
             <p className="text-[8px] text-[#4a5578] uppercase font-mono">Mise Actuelle</p>
@@ -159,14 +154,6 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
           </div>
         </div>
 
-        {isBlocked && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-rose-500" />
-            <p className="text-[10px] text-rose-400 font-bold uppercase">
-              {isTurnLimitReached ? 'Limite de tours atteinte' : isStopLossReached ? 'Stop-Loss atteint' : 'Objectif atteint'}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Multiplier Carousel */}
@@ -186,7 +173,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
               <button
                 key={stars}
                 onClick={() => setSelectedStars(stars)}
-                disabled={gameState === 'playing' || isBlocked}
+                disabled={gameState === 'playing'}
                 className={`flex-shrink-0 min-w-[70px] text-center p-2 rounded-lg border transition-all ${
                   isDone ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 
                   isCurrent ? 'bg-emerald-500 border-emerald-500 text-white scale-110 font-bold shadow-lg shadow-emerald-500/20' :
@@ -305,8 +292,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
         ) : (
           <button
             onClick={gameState === 'idle' ? startGame : reset}
-            disabled={isBlocked}
-            className={`w-full font-bold py-4 rounded-xl text-xs uppercase tracking-[0.2em] transition-all shadow-lg ${isBlocked ? 'bg-[#252d45] text-[#4a5578] cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/20'}`}
+            className="w-full font-bold py-4 rounded-xl text-xs uppercase tracking-[0.2em] transition-all shadow-lg bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/20"
           >
             {gameState === 'idle' ? 'Jouer' : 'Nouvelle partie'}
           </button>

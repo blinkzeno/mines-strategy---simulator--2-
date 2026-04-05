@@ -14,6 +14,9 @@ import {
   ShieldAlert,
   History as HistoryIcon,
   Calendar,
+  Wallet,
+  Banknote,
+  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -21,6 +24,7 @@ import {
   GameRecord,
   PredictionResult,
   SessionSummary,
+  WithdrawalRecord,
 } from "../types";
 import {
   analyzeScreenshot,
@@ -31,6 +35,7 @@ interface DashboardProps {
   state: AppState;
   onAddRecord: (record: GameRecord) => void;
   onUpdateState: (updates: Partial<AppState>) => void;
+  onWithdrawal: (withdrawal: Omit<WithdrawalRecord, 'id' | 'timestamp'>) => WithdrawalRecord;
 }
 
 const MULTIPLIERS: Record<number, number> = {
@@ -50,6 +55,7 @@ export default function Dashboard({
   state,
   onAddRecord,
   onUpdateState,
+  onWithdrawal,
 }: DashboardProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
@@ -61,18 +67,80 @@ export default function Dashboard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiSuggestions, setAiSuggestions] = useState<number[]>([]);
 
-  const generateNewSuggestions = (bet: number) => {
-    let count = 6;
-    if (bet > 500) count = 5;
+  // Withdrawal form state
+  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalMethod, setWithdrawalMethod] = useState<WithdrawalRecord['method']>('bank_transfer');
+  const [withdrawalNotes, setWithdrawalNotes] = useState('');
 
-    const suggested: number[] = [];
-    while (suggested.length < count) {
-      const cell = Math.floor(Math.random() * 25);
-      if (!suggested.includes(cell)) {
-        suggested.push(cell);
+  // Patterns optimaux basés sur le rapport de simulation (TOP 20)
+  const OPTIMAL_PATTERNS = [
+    { rank: 1, cells: [0, 3, 4, 20, 21, 24], name: "Coins Opposés", score: 0.90513 },     // 1-4-5-21-22-25
+    { rank: 2, cells: [0, 4, 5, 19, 20, 24], name: "Diagonal Coins", score: 0.90511 },    // 1-5-6-20-21-25
+    { rank: 3, cells: [0, 4, 9, 15, 20, 24], name: "Extended Z", score: 0.90510 },        // 1-5-10-16-21-25
+    { rank: 4, cells: [0, 1, 4, 20, 23, 24], name: "Z-Pattern", score: 0.90510 },          // 1-2-5-21-24-25
+    { rank: 5, cells: [0, 4, 9, 20, 21, 24], name: "Top-Bottom", score: 0.90258 },         // 1-5-10-21-22-25
+    { rank: 6, cells: [0, 3, 4, 15, 20, 24], name: "L-Extended", score: 0.90258 },        // 1-4-5-16-21-25
+    { rank: 7, cells: [0, 4, 5, 20, 23, 24], name: "Corner Spread", score: 0.90257 },    // 1-5-6-21-24-25
+    { rank: 8, cells: [0, 1, 4, 19, 20, 24], name: "Double Edge", score: 0.90256 },        // 1-2-5-20-21-25
+    { rank: 9, cells: [0, 1, 4, 20, 21, 24], name: "X-Corners", score: 0.89999 },         // 1-2-5-21-22-25
+    { rank: 10, cells: [0, 4, 5, 9, 20, 24], name: "Triple Edge", score: 0.89998 },      // 1-5-6-10-21-25
+  ];
+
+  // Named patterns from the report
+  const NAMED_PATTERNS = [
+    { name: "🏆 Coins Opposés", cells: [0, 3, 4, 20, 21, 24], rank: "#1", desc: "4 coins + 2 bords intermédiaires" },
+    { name: "Z-Pattern", cells: [0, 1, 4, 20, 23, 24], rank: "#4", desc: "Coins haut + coins bas + bords" },
+    { name: "Carré Externe", cells: [0, 2, 4, 20, 23, 24], rank: "~#20", desc: "4 coins + 2 milieux bords" },
+    { name: "Anti-Cluster", cells: [0, 4, 12, 16, 20, 24], rank: "~#150", desc: "Maximum de distance entre cases" },
+  ];
+
+  const [currentPattern, setCurrentPattern] = useState<typeof OPTIMAL_PATTERNS[0] | null>(null);
+  const [useRandomPrediction, setUseRandomPrediction] = useState(state.useRandomPrediction || false);
+
+  const generateNewSuggestions = (bet: number, losses: number, isRandom: boolean) => {
+    // TOUJOURS 6 cases, indépendamment du montant parié
+    const STAR_COUNT = 6;
+
+    if (isRandom) {
+      // Mode aléatoire: générer 6 cases complètement aléatoires
+      const suggested: number[] = [];
+      while (suggested.length < STAR_COUNT) {
+        const cell = Math.floor(Math.random() * 25);
+        if (!suggested.includes(cell)) {
+          suggested.push(cell);
+        }
       }
+      setCurrentPattern(null);
+      setAiSuggestions(suggested);
+      return;
     }
-    setAiSuggestions(suggested);
+
+    // Mode optimal basé sur les pertes consécutives
+    let selectedPattern;
+    
+    if (losses === 0) {
+      selectedPattern = OPTIMAL_PATTERNS[Math.floor(Math.random() * 5)];
+    } else if (losses === 1) {
+      selectedPattern = OPTIMAL_PATTERNS[Math.floor(Math.random() * 3)];
+    } else if (losses === 2) {
+      selectedPattern = OPTIMAL_PATTERNS[Math.floor(Math.random() * 2)];
+    } else {
+      selectedPattern = OPTIMAL_PATTERNS[0];
+    }
+
+    setCurrentPattern(selectedPattern);
+    
+    const variedCells = selectedPattern.cells.map(cell => {
+      if (Math.random() < 0.2) {
+        const variation = Math.random() < 0.5 ? -1 : 1;
+        const newCell = cell + variation;
+        if (newCell >= 0 && newCell < 25) return newCell;
+      }
+      return cell;
+    });
+
+    setAiSuggestions(variedCells);
   };
 
   // Calculate consecutive losses and total amount lost from history
@@ -106,7 +174,7 @@ export default function Dashboard({
 
   const handleQuickLog = (type: "win" | "lose") => {
     const amount = currentMartingaleBet;
-    const starCount = aiSuggestions.length || (amount > 500 ? 5 : 6); // Fallback
+    const starCount = 6; // TOUJOURS 6 cases
     const multiplier = type === "win" ? MULTIPLIERS[starCount] : 1.0;
     const profit =
       type === "win" ? Math.floor(amount * multiplier - amount) : 0;
@@ -164,8 +232,8 @@ export default function Dashboard({
   }, []);
 
   useEffect(() => {
-    generateNewSuggestions(currentMartingaleBet);
-  }, [state.history.length, currentMartingaleBet]);
+    generateNewSuggestions(currentMartingaleBet, consecutiveLosses, useRandomPrediction);
+  }, [state.history.length, currentMartingaleBet, consecutiveLosses, useRandomPrediction]);
 
   useEffect(() => {
     if (!state.nextSessionStartTime) return;
@@ -175,14 +243,14 @@ export default function Dashboard({
       const diff = state.nextSessionStartTime! - now;
 
       if (diff <= 0) {
-        // If it's a new day (5 AM), reset turns and sessions
+        // If it's a new day (3 AM), reset turns and sessions
         const nextDate = new Date(state.nextSessionStartTime!);
-        if (nextDate.getHours() === 5) {
+        if (nextDate.getHours() === 3) {
           onUpdateState({
             nextSessionStartTime: undefined,
             sessionsCompleted: 0,
             turnsToday: 0,
-            initialRealBalance: state.realBalance, // Reset profit tracking for the new day
+            initialRealBalance: state.realBalance,
           });
         } else {
           onUpdateState({ nextSessionStartTime: undefined });
@@ -206,23 +274,23 @@ export default function Dashboard({
     const next = new Date(now);
 
     if (sessionsDone === 0) {
-      // If before 5 AM, wait until 5 AM today
-      if (now.getHours() < 5) {
-        next.setHours(5, 0, 0, 0);
+      // If before 3 AM, wait until 3 AM today
+      if (now.getHours() < 3) {
+        next.setHours(3, 0, 0, 0);
       } else {
         return undefined;
       }
     } else if (sessionsDone === 1) {
-      // Wait until 8 PM (20:00) today
-      if (now.getHours() < 20) {
-        next.setHours(20, 0, 0, 0);
+      // Wait until 3 PM (15:00) today
+      if (now.getHours() < 15) {
+        next.setHours(15, 0, 0, 0);
       } else {
         return undefined;
       }
     } else {
-      // Daily goal reached (2 sessions), wait until 5 AM tomorrow
+      // Daily goal reached (2 sessions), wait until 3 AM tomorrow
       next.setDate(now.getDate() + 1);
-      next.setHours(5, 0, 0, 0);
+      next.setHours(3, 0, 0, 0);
     }
     return next.getTime();
   };
@@ -238,13 +306,28 @@ export default function Dashboard({
         ).toFixed(1)
       : "0.0";
 
-  // Recovery Analysis
-  const currentTargetStars =
-    aiSuggestions.length || (currentMartingaleBet > 500 ? 5 : 6);
+  // Recovery Analysis - TOUJOURS 6 étoiles
+  const currentTargetStars = 6;
   const potentialGain =
     Math.floor(currentMartingaleBet * MULTIPLIERS[currentTargetStars]) -
     currentMartingaleBet;
   const recoveryNet = potentialGain - consecutiveLostAmount;
+
+  // Calculate withdrawal eligibility
+  const totalGainsSinceLastWithdrawal = state.realBalance - (state.withdrawalCycleStart || state.initialRealBalance);
+  const isWithdrawalBlocked = state.stopLossActive || totalGainsSinceLastWithdrawal <= 0;
+  
+  // Calculate days since last withdrawal
+  const daysSinceLastWithdrawal = state.lastWithdrawalDate 
+    ? Math.floor((Date.now() - state.lastWithdrawalDate) / (1000 * 60 * 60 * 24))
+    : 999;
+  
+  // Max withdrawable amount (half of gains after 3 days if daily goals met)
+  const maxWithdrawableAmount = daysSinceLastWithdrawal >= 3 && totalGainsSinceLastWithdrawal > 0
+    ? Math.floor(totalGainsSinceLastWithdrawal / 2)
+    : 0;
+  
+  const canWithdraw = !isWithdrawalBlocked && maxWithdrawableAmount > 0;
 
   const totalProfitSinceReset = state.realBalance - state.initialRealBalance;
   const isDailyGoalReached = totalProfitSinceReset >= 3000;
@@ -315,6 +398,10 @@ export default function Dashboard({
       sessionHistory: [...(state.sessionHistory || []), summary],
       lastSessionEndTime: Date.now(),
       nextSessionStartTime: nextStart,
+      // Track stop-loss for withdrawal blocking
+      stopLossActive: isStopLossReached ? true : state.stopLossActive,
+      stopLossRecoveredAt: isStopLossReached ? undefined : 
+        (state.stopLossActive && currentSessionProfit > 0 ? Date.now() : state.stopLossRecoveredAt),
     });
   };
 
@@ -349,6 +436,60 @@ export default function Dashboard({
           virtualBalance: 100000,
         });
       }
+    }
+  };
+
+  const handleWithdrawal = () => {
+    const amount = parseInt(withdrawalAmount.replace(/\s/g, ""), 10);
+    
+    if (isNaN(amount) || amount <= 0) {
+      alert("Veuillez entrer un montant valide supérieur à 0.");
+      return;
+    }
+    
+    if (amount > state.realBalance) {
+      alert("Le montant du retrait ne peut pas dépasser votre solde.");
+      return;
+    }
+    
+    if (isWithdrawalBlocked) {
+      if (state.stopLossActive) {
+        alert("Retrait bloqué: Stop-Loss atteint. Vous devez récupérer votre perte avant de pouvoir retirer.");
+      } else {
+        alert("Retrait bloqué: Vous devez avoir des gains positifs par rapport au solde initial pour effectuer un retrait.");
+      }
+      return;
+    }
+    
+    if (daysSinceLastWithdrawal < 3) {
+      alert(`Retrait disponible dans ${3 - daysSinceLastWithdrawal} jour(s). Les retraits sont autorisés tous les 3 jours uniquement.`);
+      return;
+    }
+    
+    if (amount > maxWithdrawableAmount) {
+      alert(`Montant maximum de retrait: ${maxWithdrawableAmount.toLocaleString()} F (50% des gains sur 3 jours)`);
+      return;
+    }
+    
+    if (confirm(`Confirmez-vous le retrait de ${amount.toLocaleString()} F ?\n\nAprès ce retrait, vous devrez attendre 3 jours pour un nouveau retrait.`)) {
+      onWithdrawal({
+        amount,
+        method: withdrawalMethod,
+        status: 'pending',
+        notes: withdrawalNotes,
+      });
+      
+      // Update withdrawal tracking
+      onUpdateState({
+        lastWithdrawalDate: Date.now(),
+        withdrawalCycleStart: state.realBalance - amount,
+        withdrawalCycleGains: 0,
+      });
+      
+      // Reset form
+      setWithdrawalAmount('');
+      setWithdrawalNotes('');
+      setShowWithdrawalForm(false);
     }
   };
 
@@ -596,6 +737,195 @@ export default function Dashboard({
         </div>
       </section>
 
+      {/* Withdrawal Section */}
+      <section className="bg-[#141828] border border-[#252d45] rounded-2xl p-5 overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-400" />
+              <h2 className="font-bold text-sm uppercase tracking-tight">
+                Retrait de Gains
+              </h2>
+            </div>
+            <button
+              onClick={() => setShowWithdrawalForm(!showWithdrawalForm)}
+              className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest hover:text-emerald-300 transition-colors"
+            >
+              {showWithdrawalForm ? 'Annuler' : 'Nouveau Retrait'}
+            </button>
+          </div>
+
+          {!showWithdrawalForm ? (
+            <div className="text-center py-4">
+              <p className="text-[10px] text-[#4a5578] uppercase tracking-widest mb-2">
+                Solde Disponible pour Retrait
+              </p>
+              <p className="text-3xl font-extrabold text-white tracking-tighter">
+                {(state.realBalance || 0).toLocaleString()}{' '}
+                <span className="text-sm font-normal text-[#4a5578]">F</span>
+              </p>
+              
+              {/* Withdrawal status */}
+              <div className="mt-4 space-y-2">
+                {state.stopLossActive ? (
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+                    <p className="text-[9px] text-rose-400">
+                      🔒 Retrait bloqué: Stop-Loss atteint. Récupérez votre perte pour débloquer.
+                    </p>
+                  </div>
+                ) : daysSinceLastWithdrawal < 3 ? (
+                  <div className="bg-amber-400/10 border border-amber-400/20 rounded-lg p-2">
+                    <p className="text-[9px] text-amber-400">
+                      ⏳ Prochain retrait dans {3 - daysSinceLastWithdrawal} jour(s)
+                    </p>
+                  </div>
+                ) : maxWithdrawableAmount > 0 ? (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
+                    <p className="text-[9px] text-emerald-400">
+                      ✅ Retrait disponible: max {maxWithdrawableAmount.toLocaleString()} F (50% des gains)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-[#252d45] rounded-lg p-2">
+                    <p className="text-[9px] text-[#4a5578]">
+                      ℹ️ Aucun gain disponible pour retrait
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-[9px] text-[#4a5578] mt-2">
+                {(state.withdrawalHistory || []).length} retrait(s) effectué(s)
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] text-[#4a5578] uppercase font-mono mb-1 block">
+                  Montant du Retrait (F)
+                </label>
+                <input
+                  type="number"
+                  value={withdrawalAmount}
+                  onChange={(e) => setWithdrawalAmount(e.target.value)}
+                  placeholder="Ex: 5000"
+                  className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[#4a5578] uppercase font-mono mb-1 block">
+                  Méthode de Retrait
+                </label>
+                <select
+                  value={withdrawalMethod}
+                  onChange={(e) => setWithdrawalMethod(e.target.value as WithdrawalRecord['method'])}
+                  className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-colors"
+                >
+                  <option value="bank_transfer">Virement Bancaire</option>
+                  <option value="mobile_money">Mobile Money</option>
+                  <option value="crypto">Cryptomonnaie</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[#4a5578] uppercase font-mono mb-1 block">
+                  Notes (optionnel)
+                </label>
+                <input
+                  type="text"
+                  value={withdrawalNotes}
+                  onChange={(e) => setWithdrawalNotes(e.target.value)}
+                  placeholder="Référence, notes..."
+                  className="w-full bg-[#0e1220] border border-[#252d45] rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-colors"
+                />
+              </div>
+
+              <button
+                onClick={handleWithdrawal}
+                disabled={!withdrawalAmount || parseInt(withdrawalAmount) <= 0}
+                className={`w-full font-bold py-4 rounded-xl text-xs uppercase tracking-[0.2em] transition-all shadow-lg flex items-center justify-center gap-2 ${
+                  !withdrawalAmount || parseInt(withdrawalAmount) <= 0
+                    ? 'bg-[#252d45] text-[#4a5578] cursor-not-allowed'
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-black shadow-emerald-500/20'
+                }`}
+              >
+                <ArrowUpRight className="w-5 h-5" />
+                Confirmer le Retrait
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Withdrawal History */}
+      {(state.withdrawalHistory || []).length > 0 && (
+        <section className="bg-[#141828] border border-[#252d45] rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Banknote className="w-5 h-5 text-emerald-400" />
+              <h2 className="font-bold text-sm uppercase tracking-tight">
+                Historique des Retraits
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono text-[#4a5578]">
+              {(state.withdrawalHistory || []).length} retrait(s)
+            </span>
+          </div>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+            {[...(state.withdrawalHistory || [])].reverse().map((withdrawal) => (
+              <div
+                key={withdrawal.id}
+                className="flex items-center justify-between p-3 rounded-xl border bg-emerald-500/5 border-emerald-500/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-500/20 text-emerald-400">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-white uppercase tracking-tight">
+                      {withdrawal.method === 'bank_transfer' && 'Virement Bancaire'}
+                      {withdrawal.method === 'mobile_money' && 'Mobile Money'}
+                      {withdrawal.method === 'crypto' && 'Cryptomonnaie'}
+                    </p>
+                    <p className="text-[8px] text-[#4a5578] font-mono">
+                      {new Date(withdrawal.timestamp).toLocaleDateString()} —{' '}
+                      {new Date(withdrawal.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                    {withdrawal.notes && (
+                      <p className="text-[8px] text-[#4a5578] italic">
+                        {withdrawal.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-emerald-400">
+                    -{withdrawal.amount.toLocaleString()} F
+                  </p>
+                  <p className="text-[8px] font-mono uppercase">
+                    <span className={`${
+                      withdrawal.status === 'completed' ? 'text-emerald-400' :
+                      withdrawal.status === 'pending' ? 'text-amber-400' :
+                      'text-rose-400'
+                    }`}>
+                      {withdrawal.status === 'completed' && 'Complété'}
+                      {withdrawal.status === 'pending' && 'En attente'}
+                      {withdrawal.status === 'failed' && 'Échoué'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Tour en Cours (Automated) */}
       <section className="bg-[#141828] border border-[#252d45] rounded-2xl p-5">
         <div className="flex items-center justify-between mb-6">
@@ -622,37 +952,27 @@ export default function Dashboard({
             </div>
             <div>
               <p className="text-[10px] text-[#4a5578] uppercase font-mono tracking-widest leading-none mb-1">
-                Cible Stratégique
+                Pattern Optimal
               </p>
               <p className="text-sm font-bold text-white uppercase">
-                {aiSuggestions.length} Étoiles{" "}
+                {currentPattern ? currentPattern.name : "Analyse..."}{" "}
                 <span className="text-[10px] text-indigo-400 font-mono">
-                  (@ x
-                  {
-                    MULTIPLIERS[
-                      aiSuggestions.length ||
-                        (currentMartingaleBet > 500 ? 5 : 6)
-                    ]
-                  }
-                  )
+                  (6 Cases)
                 </span>
               </p>
+              {consecutiveLosses > 0 && (
+                <p className="text-[9px] text-amber-400 mt-1">
+                  🎯 Adapté aux {consecutiveLosses} perte{consecutiveLosses > 1 ? 's' : ''} consécutive{consecutiveLosses > 1 ? 's' : ''}
+                </p>
+              )}
             </div>
           </div>
           <div className="text-right">
             <p className="text-[10px] text-[#4a5578] uppercase font-mono tracking-widest leading-none mb-1">
-              Gain Attendu
+              Score Pattern
             </p>
             <p className="text-sm font-black text-emerald-400">
-              +
-              {Math.floor(
-                currentMartingaleBet *
-                  (MULTIPLIERS[
-                    aiSuggestions.length || (currentMartingaleBet > 500 ? 5 : 6)
-                  ] -
-                    1),
-              ).toLocaleString()}{" "}
-              F
+              {currentPattern ? (currentPattern.score * 100).toFixed(2) : "--"}%
             </p>
           </div>
         </div>
@@ -782,16 +1102,54 @@ export default function Dashboard({
               Intelligence Stratégique
             </h2>
           </div>
-          <button
-            onClick={handleGetStrategy}
-            disabled={isAnalyzing}
-            className="text-[10px] font-bold text-orange-500 uppercase tracking-widest hover:underline disabled:opacity-50"
-          >
-            {isAnalyzing ? "Analyse..." : "Actualiser"}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Toggle for random prediction */}
+            <button
+              onClick={() => {
+                const newMode = !useRandomPrediction;
+                setUseRandomPrediction(newMode);
+                onUpdateState({ useRandomPrediction: newMode });
+                generateNewSuggestions(currentMartingaleBet, consecutiveLosses, newMode);
+              }}
+              className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border transition-all ${
+                useRandomPrediction 
+                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' 
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              }`}
+            >
+              {useRandomPrediction ? '🎲 Aléatoire' : '🎯 Optimal'}
+            </button>
+            <button
+              onClick={handleGetStrategy}
+              disabled={isAnalyzing}
+              className="text-[10px] font-bold text-orange-500 uppercase tracking-widest hover:underline disabled:opacity-50"
+            >
+              {isAnalyzing ? "Analyse..." : "Actualiser"}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-6">
+          {useRandomPrediction ? (
+            <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3 mb-4">
+              <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">
+                Mode Aléatoire Activé
+              </p>
+              <p className="text-[9px] text-[#4a5578]">
+                Les cases sont générées aléatoirement sans pattern optimisé
+              </p>
+            </div>
+          ) : currentPattern && (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 mb-4">
+              <p className="text-[10px] text-emerald-400 font-bold uppercase mb-1">
+                Pattern #{currentPattern.rank} — {currentPattern.name}
+              </p>
+              <p className="text-[9px] text-[#4a5578]">
+                Score: {(currentPattern.score * 100).toFixed(3)}% · Cases: {currentPattern.cells.map(c => c + 1).join('-')}
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col items-center gap-4">
             <div className="grid grid-cols-5 gap-1 bg-black/20 p-2 rounded-xl border border-white/5">
               {[...Array(25)].map((_, i) => (
@@ -808,6 +1166,14 @@ export default function Dashboard({
               ))}
             </div>
           </div>
+
+          {consecutiveLosses >= 2 && (
+            <div className="bg-amber-400/5 border border-amber-400/20 rounded-xl p-3 mt-4">
+              <p className="text-[10px] text-amber-400 text-center">
+                ⚠️ {consecutiveLosses} pertes consécutives — Utilisation du pattern #{consecutiveLosses >= 3 ? '1' : 'TOP 2'} pour maximiser les chances
+              </p>
+            </div>
+          )}
 
           {strategy ? (
             <div className="space-y-3 pt-2 border-t border-white/5">

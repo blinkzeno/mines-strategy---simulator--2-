@@ -5,14 +5,17 @@ import {
   History as HistoryIcon,
   Settings,
   Calendar,
+  Wallet,
+  ArrowUpRight,
+  Banknote,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Dashboard from "./components/Dashboard";
 import Simulator from "./components/Simulator";
-import { AppState, GameRecord } from "./types";
+import { AppState, GameRecord, WithdrawalRecord } from "./types";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "simulator">(
+  const [activeTab, setActiveTab] = useState<"dashboard" | "simulator" | "history" | "settings">(
     "dashboard",
   );
   const [state, setState] = useState<AppState>(() => {
@@ -30,6 +33,7 @@ export default function App() {
       history: [],
       virtualBalance: 100000,
       turnsToday: 0,
+      withdrawalHistory: [],
     };
     const saved = localStorage.getItem("mines_pro_state");
     if (saved) {
@@ -74,6 +78,22 @@ export default function App() {
     setState((prev) => ({ ...prev, ...updates }));
   };
 
+  const addWithdrawal = (withdrawal: Omit<WithdrawalRecord, 'id' | 'timestamp'>) => {
+    const newWithdrawal: WithdrawalRecord = {
+      ...withdrawal,
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: Date.now(),
+    };
+    
+    setState((prev) => ({
+      ...prev,
+      realBalance: prev.realBalance - withdrawal.amount,
+      withdrawalHistory: [newWithdrawal, ...(prev.withdrawalHistory || [])].slice(0, 50),
+    }));
+    
+    return newWithdrawal;
+  };
+
   return (
     <div className="min-h-screen bg-[#080b12] text-[#cdd3e8] font-sans selection:bg-indigo-500/30">
       {/* Top Navigation */}
@@ -113,6 +133,7 @@ export default function App() {
                 state={state}
                 onAddRecord={addGameRecord}
                 onUpdateState={updateState}
+                onWithdrawal={addWithdrawal}
               />
             </motion.div>
           ) : activeTab === "simulator" ? (
@@ -231,6 +252,90 @@ export default function App() {
                     )}
                   </div>
                 </div>
+
+                {/* Withdrawal History */}
+                {(state.withdrawalHistory || []).length > 0 && (
+                  <div className="bg-[#141828] border border-[#252d45] rounded-2xl p-5 mt-4">
+                    <h2 className="font-bold text-sm uppercase tracking-tight mb-4 flex items-center gap-2">
+                      <Banknote className="w-4 h-4 text-emerald-400" />
+                      Historique des Retraits
+                    </h2>
+                    <div className="space-y-4">
+                      {[...(state.withdrawalHistory || [])].reverse().map((withdrawal) => (
+                        <div
+                          key={withdrawal.id}
+                          className="flex flex-col p-4 rounded-xl border border-[#252d45] bg-[#0e1220] space-y-3"
+                        >
+                          <div className="flex justify-between items-center border-b border-[#252d45] pb-2">
+                            <span className="text-xs font-bold text-white uppercase flex items-center gap-2">
+                              <Wallet className="w-4 h-4 text-emerald-400" />
+                              {withdrawal.method === 'bank_transfer' && 'Virement Bancaire'}
+                              {withdrawal.method === 'mobile_money' && 'Mobile Money'}
+                              {withdrawal.method === 'crypto' && 'Cryptomonnaie'}
+                              <span className="text-[10px] text-[#4a5578] font-mono lowercase">
+                                •{" "}
+                                {new Date(withdrawal.timestamp).toLocaleTimeString(
+                                  "fr-FR",
+                                  { hour: "2-digit", minute: "2-digit" },
+                                )}
+                              </span>
+                            </span>
+                            <span className="text-xs font-bold text-emerald-400">
+                              -{withdrawal.amount.toLocaleString()} F
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 text-[10px] font-mono">
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Date
+                              </span>
+                              <span className="text-white font-bold">
+                                {new Date(withdrawal.timestamp).toLocaleDateString(
+                                  "fr-FR",
+                                  {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "short",
+                                  },
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex flex-col bg-[#141828] p-2 rounded-lg border border-[#252d45]/50 text-right">
+                              <span className="text-[#4a5578] uppercase mb-1">
+                                Statut
+                              </span>
+                              <span
+                                className={`font-bold ${
+                                  withdrawal.status === "completed"
+                                    ? "text-emerald-400"
+                                    : withdrawal.status === "pending"
+                                      ? "text-amber-400"
+                                      : "text-rose-400"
+                                }`}
+                              >
+                                {withdrawal.status === "completed" && "Complété"}
+                                {withdrawal.status === "pending" && "En attente"}
+                                {withdrawal.status === "failed" && "Échoué"}
+                              </span>
+                            </div>
+
+                            {withdrawal.notes && (
+                              <div className="col-span-2 flex justify-between items-center bg-[#141828] p-2 rounded-lg border border-[#252d45]/50">
+                                <span className="text-[#4a5578] uppercase font-bold">
+                                  Notes
+                                </span>
+                                <span className="text-white text-right">
+                                  {withdrawal.notes}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           ) : (
