@@ -28,7 +28,7 @@ export default function App() {
       sessionGoal: 1500,
       sessionsCompleted: 0,
       stopLoss: 5000,
-      baseBet: 500,
+      baseBet: 200,
       martingaleFactor: 1.5,
       history: [],
       virtualBalance: 100000,
@@ -147,6 +147,7 @@ export default function App() {
               <Simulator
                 virtualBalance={state.virtualBalance}
                 onUpdateBalance={updateVirtualBalance}
+                baseBet={state.baseBet || 200}
               />
             </motion.div>
           ) : activeTab === "history" ? (

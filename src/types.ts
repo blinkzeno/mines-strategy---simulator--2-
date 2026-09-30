@@ -49,6 +49,9 @@ export interface AppState {
   defaultCapital: number;
   sessionStartBalance: number;
   withdrawalHistory?: WithdrawalRecord[];
+  // Prediction cooldown: timestamp in ms after which the next prediction unlocks.
+  // Absent or past means the prediction is ready. Persisted in local storage.
+  nextPredictionAt?: number;
   // Prediction mode
   useRandomPrediction?: boolean;
   // Withdrawal tracking

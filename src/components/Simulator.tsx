@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 interface SimulatorProps {
   virtualBalance: number;
   onUpdateBalance: (amount: number) => void;
+  baseBet: number;
 }
 
 const GRID_SIZE = 25;
@@ -21,8 +22,8 @@ const MULTIPLIERS: Record<number, number> = {
   10: 4.57
 };
 
-export default function Simulator({ virtualBalance, onUpdateBalance }: SimulatorProps) {
-  const [selectedStars, setSelectedStars] = useState(3);
+export default function Simulator({ virtualBalance, onUpdateBalance, baseBet }: SimulatorProps) {
+  const [selectedStars, setSelectedStars] = useState(8);
   const [consecutiveLosses, setConsecutiveLosses] = useState(0);
   const [totalLostAmount, setTotalLostAmount] = useState(0);
   const [sessionProfit, setSessionProfit] = useState(0);
@@ -32,12 +33,13 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
   const [minePositions, setMinePositions] = useState<number[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
 
-  const currentMartingaleBet = Math.round(500 * Math.pow(1.5, consecutiveLosses));
+  // Mise uniforme: baseBet fixe pour tout le cycle, même après une perte
+  const currentFixedBet = baseBet;
 
   const startGame = () => {
-    if (currentMartingaleBet > virtualBalance) return;
+    if (currentFixedBet > virtualBalance) return;
     
-    onUpdateBalance(-currentMartingaleBet);
+    onUpdateBalance(-currentFixedBet);
     // Mines count is fixed at 3 for this strategy simulation
     const minesCount = 3;
     const newMines: number[] = [];
@@ -62,8 +64,8 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
       setGrid(newGrid);
       setGameState('lost');
       
-      // Martingale logic
-      const lost = currentMartingaleBet;
+      // Mise uniforme: la mise reste fixe, on cumule juste la perte
+      const lost = currentFixedBet;
       setTotalLostAmount(prev => prev + lost);
       setSessionProfit(prev => prev - lost);
       setConsecutiveLosses(prev => prev + 1);
@@ -86,14 +88,14 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
     if (stars === 0) return;
 
     const multiplier = MULTIPLIERS[stars];
-    const winAmount = Math.floor(currentMartingaleBet * multiplier);
-    const profit = winAmount - currentMartingaleBet;
+    const winAmount = Math.floor(currentFixedBet * multiplier);
+    const profit = winAmount - currentFixedBet;
     
     onUpdateBalance(winAmount);
     setGameState('won');
     setSessionProfit(prev => prev + profit);
     setTotalLostAmount(0); // Reset loss streak on win
-    setConsecutiveLosses(0); // Reset to base bet
+    setConsecutiveLosses(0); // Reset loss counters (la mise reste fixe)
 
     // Reveal mines
     const newGrid = [...grid];
@@ -149,8 +151,8 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
             <p className="text-xs font-bold text-white">{turnsToday}</p>
           </div>
           <div className="bg-[#0e1220] rounded-xl p-2 border border-[#252d45]">
-            <p className="text-[8px] text-[#4a5578] uppercase font-mono">Mise Actuelle</p>
-            <p className="text-xs font-bold text-amber-400">{currentMartingaleBet.toLocaleString()} F</p>
+            <p className="text-[8px] text-[#4a5578] uppercase font-mono">Mise Fixe</p>
+            <p className="text-xs font-bold text-amber-400">{currentFixedBet.toLocaleString()} F</p>
           </div>
         </div>
 
@@ -182,7 +184,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
                 } disabled:opacity-50`}
               >
                 <p className="text-[8px] font-mono uppercase">⭐{stars}</p>
-                <p className="text-[10px] font-bold">{(Math.floor(currentMartingaleBet * MULTIPLIERS[stars])).toLocaleString()} F</p>
+                <p className="text-[10px] font-bold">{(Math.floor(currentFixedBet * MULTIPLIERS[stars])).toLocaleString()} F</p>
                 <p className="text-[7px] opacity-60 font-mono">x{MULTIPLIERS[stars]}</p>
               </button>
             );
@@ -229,36 +231,33 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
         ))}
       </div>
 
+      {/* Référence stratégie : 8 étoiles pour la cote 3.17, toujours visible */}
+      <div className="bg-[#141828] border border-indigo-500/20 rounded-2xl p-4 flex items-center justify-between">
+        <p className="text-[10px] text-[#4a5578] uppercase font-mono tracking-widest">
+          Référence stratégie
+        </p>
+        <p className="text-sm font-bold text-white">
+          8 étoiles <span className="text-[10px] text-indigo-400 font-mono">cote x3.17</span>
+        </p>
+      </div>
+
       {/* Game Controls */}
       <div className="bg-[#141828] border border-[#252d45] rounded-2xl p-5 space-y-4">
         <div className="space-y-3">
-          <label className="text-[10px] text-[#4a5578] uppercase font-mono block">Séquence Martingale (Mises)</label>
-          <div className="grid grid-cols-4 gap-2">
-            {[0, 1, 2, 3].map(index => {
-              const stepMise = Math.round(500 * Math.pow(1.5, index));
-              // Calculate cumulative loss for this step
-              let cumulativeLoss = 0;
-              for (let i = 0; i <= index; i++) {
-                cumulativeLoss += Math.round(500 * Math.pow(1.5, i));
-              }
-              
-              const isActive = consecutiveLosses === index;
-              const isPast = consecutiveLosses > index;
-              return (
-                <div
-                  key={index}
-                  className={`flex flex-col items-center py-2 rounded-xl border transition-all text-center ${
-                    isActive ? 'bg-amber-400/10 border-amber-400 text-amber-400 scale-105 shadow-lg shadow-amber-400/10' : 
-                    isPast ? 'bg-rose-500/5 border-rose-500/20 text-rose-500/50' :
-                    'bg-[#0e1220] border-[#252d45] text-[#4a5578]'
-                  }`}
-                >
-                  <p className="text-xs font-bold">{stepMise.toLocaleString()}</p>
-                  <p className="text-[7px] font-mono uppercase opacity-50">Cumul: -{cumulativeLoss.toLocaleString()}</p>
-                  <p className="text-[7px] font-mono uppercase opacity-70">Mise {index + 1}</p>
-                </div>
-              );
-            })}
+          <label className="text-[10px] text-[#4a5578] uppercase font-mono block">Mise Uniforme du Cycle</label>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-amber-400/10 border-amber-400 text-amber-400">
+              <p className="text-xs font-bold">{currentFixedBet.toLocaleString()}</p>
+              <p className="text-[7px] font-mono uppercase opacity-70">Mise Fixe</p>
+            </div>
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-[#0e1220] border-[#252d45] text-[#4a5578]">
+              <p className="text-xs font-bold text-rose-400">-{totalLostAmount.toLocaleString()}</p>
+              <p className="text-[7px] font-mono uppercase opacity-70">Perte Cumulée</p>
+            </div>
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-[#0e1220] border-[#252d45] text-[#4a5578]">
+              <p className="text-xs font-bold text-white">{consecutiveLosses}</p>
+              <p className="text-[7px] font-mono uppercase opacity-70">Pertes Série</p>
+            </div>
           </div>
         </div>
 
@@ -272,7 +271,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
               <div className="text-right">
                 <p className="text-[9px] text-[#4a5578] uppercase">Gain Actuel</p>
                 <p className="text-lg font-bold text-white">
-                  {revealedCount > 0 ? Math.floor(currentMartingaleBet * MULTIPLIERS[revealedCount]).toLocaleString() : '0'} F
+                  {revealedCount > 0 ? Math.floor(currentFixedBet * MULTIPLIERS[revealedCount]).toLocaleString() : '0'} F
                 </p>
               </div>
             </div>
@@ -286,7 +285,7 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
               }`}
             >
-              Encaisser {revealedCount > 0 ? Math.floor(currentMartingaleBet * MULTIPLIERS[revealedCount]).toLocaleString() : ''} F
+              Encaisser {revealedCount > 0 ? Math.floor(currentFixedBet * MULTIPLIERS[revealedCount]).toLocaleString() : ''} F
             </button>
           </div>
         ) : (
@@ -316,8 +315,8 @@ export default function Simulator({ virtualBalance, onUpdateBalance }: Simulator
               </h3>
               <p className="text-xs text-[#cdd3e8]/70 mt-1">
                 {gameState === 'won' 
-                  ? `Tu as gagné ${(Math.floor(currentMartingaleBet * MULTIPLIERS[revealedCount])).toLocaleString()} F avec un multiplicateur de x${MULTIPLIERS[revealedCount]}.`
-                  : `La mine a explosé. Tu as perdu ta mise de ${currentMartingaleBet.toLocaleString()} F. La prochaine mise est augmentée (Martingale).`
+                  ? `Tu as gagné ${(Math.floor(currentFixedBet * MULTIPLIERS[revealedCount])).toLocaleString()} F avec un multiplicateur de x${MULTIPLIERS[revealedCount]}.`
+                  : `La mine a explosé. Tu as perdu ta mise fixe de ${currentFixedBet.toLocaleString()} F. La mise reste inchangée au prochain tour.`
                 }
               </p>
             </div>

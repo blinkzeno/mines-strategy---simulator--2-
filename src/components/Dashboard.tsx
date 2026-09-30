@@ -73,37 +73,53 @@ export default function Dashboard({
   const [withdrawalMethod, setWithdrawalMethod] = useState<WithdrawalRecord['method']>('bank_transfer');
   const [withdrawalNotes, setWithdrawalNotes] = useState('');
 
-  // Patterns optimaux basés sur le rapport de simulation (TOP 20)
+  // Patterns optimaux adaptés à 8 cases pour viser la cote 3.17 (3 mines)
   const OPTIMAL_PATTERNS = [
-    { rank: 1, cells: [0, 3, 4, 20, 21, 24], name: "Coins Opposés", score: 0.90513 },     // 1-4-5-21-22-25
-    { rank: 2, cells: [0, 4, 5, 19, 20, 24], name: "Diagonal Coins", score: 0.90511 },    // 1-5-6-20-21-25
-    { rank: 3, cells: [0, 4, 9, 15, 20, 24], name: "Extended Z", score: 0.90510 },        // 1-5-10-16-21-25
-    { rank: 4, cells: [0, 1, 4, 20, 23, 24], name: "Z-Pattern", score: 0.90510 },          // 1-2-5-21-24-25
-    { rank: 5, cells: [0, 4, 9, 20, 21, 24], name: "Top-Bottom", score: 0.90258 },         // 1-5-10-21-22-25
-    { rank: 6, cells: [0, 3, 4, 15, 20, 24], name: "L-Extended", score: 0.90258 },        // 1-4-5-16-21-25
-    { rank: 7, cells: [0, 4, 5, 20, 23, 24], name: "Corner Spread", score: 0.90257 },    // 1-5-6-21-24-25
-    { rank: 8, cells: [0, 1, 4, 19, 20, 24], name: "Double Edge", score: 0.90256 },        // 1-2-5-20-21-25
-    { rank: 9, cells: [0, 1, 4, 20, 21, 24], name: "X-Corners", score: 0.89999 },         // 1-2-5-21-22-25
-    { rank: 10, cells: [0, 4, 5, 9, 20, 24], name: "Triple Edge", score: 0.89998 },      // 1-5-6-10-21-25
+    { rank: 1, cells: [0, 2, 3, 4, 20, 21, 22, 24], name: "Coins Opposés", score: 0.90513 },     // 1-3-4-5-21-22-23-25
+    { rank: 2, cells: [0, 1, 4, 5, 19, 20, 23, 24], name: "Diagonal Coins", score: 0.90511 },    // 1-2-5-6-20-21-24-25
+    { rank: 3, cells: [0, 2, 4, 9, 15, 20, 22, 24], name: "Extended Z", score: 0.90510 },        // 1-3-5-10-16-21-23-25
+    { rank: 4, cells: [0, 1, 2, 4, 20, 22, 23, 24], name: "Z-Pattern", score: 0.90510 },          // 1-2-3-5-21-23-24-25
+    { rank: 5, cells: [0, 1, 4, 9, 20, 21, 23, 24], name: "Top-Bottom", score: 0.90258 },         // 1-2-5-10-21-22-24-25
+    { rank: 6, cells: [0, 3, 4, 5, 15, 19, 20, 24], name: "L-Extended", score: 0.90258 },        // 1-4-5-6-16-20-21-25
+    { rank: 7, cells: [0, 1, 4, 5, 20, 21, 23, 24], name: "Corner Spread", score: 0.90257 },    // 1-2-5-6-21-22-24-25
+    { rank: 8, cells: [0, 1, 4, 5, 19, 20, 23, 24], name: "Double Edge", score: 0.90256 },        // 1-2-5-6-20-21-24-25
+    { rank: 9, cells: [0, 1, 3, 4, 20, 21, 22, 24], name: "X-Corners", score: 0.89999 },         // 1-2-4-5-21-22-23-25
+    { rank: 10, cells: [0, 2, 4, 5, 9, 20, 22, 24], name: "Triple Edge", score: 0.89998 },      // 1-3-5-6-10-21-23-25
   ];
 
   // Named patterns from the report
   const NAMED_PATTERNS = [
-    { name: "🏆 Coins Opposés", cells: [0, 3, 4, 20, 21, 24], rank: "#1", desc: "4 coins + 2 bords intermédiaires" },
-    { name: "Z-Pattern", cells: [0, 1, 4, 20, 23, 24], rank: "#4", desc: "Coins haut + coins bas + bords" },
-    { name: "Carré Externe", cells: [0, 2, 4, 20, 23, 24], rank: "~#20", desc: "4 coins + 2 milieux bords" },
-    { name: "Anti-Cluster", cells: [0, 4, 12, 16, 20, 24], rank: "~#150", desc: "Maximum de distance entre cases" },
+    { name: "🏆 Coins Opposés", cells: [0, 2, 3, 4, 20, 21, 22, 24], rank: "#1", desc: "4 coins + 4 bords intermédiaires" },
+    { name: "Z-Pattern", cells: [0, 1, 2, 4, 20, 22, 23, 24], rank: "#4", desc: "Coins haut + coins bas + bords" },
+    { name: "Carré Externe", cells: [0, 2, 4, 10, 14, 20, 22, 24], rank: "~#20", desc: "4 coins + 4 milieux bords" },
+    { name: "Anti-Cluster", cells: [0, 4, 6, 12, 16, 18, 20, 24], rank: "~#150", desc: "Maximum de distance entre cases" },
   ];
 
   const [currentPattern, setCurrentPattern] = useState<typeof OPTIMAL_PATTERNS[0] | null>(null);
   const [useRandomPrediction, setUseRandomPrediction] = useState(state.useRandomPrediction || false);
 
+  // Garantie 8 cases : nettoie toute liste (doublons, hors grille) et complète
+  // avec le pattern numéro 1 puis le reste de la grille. Le rendu n affiche
+  // jamais moins de 8 cases, même si l IA renvoie une liste incomplète.
+  const ensureEightCells = (cells: number[]) => {
+    const seen: number[] = [];
+    const push = (c: number) => {
+      if (Number.isInteger(c) && c >= 0 && c < 25 && !seen.includes(c)) {
+        seen.push(c);
+      }
+    };
+    (cells || []).forEach(push);
+    OPTIMAL_PATTERNS[0].cells.forEach(push);
+    for (let i = 0; i < 25 && seen.length < 8; i++) push(i);
+    return seen.slice(0, 8);
+  };
+
   const generateNewSuggestions = (bet: number, losses: number, isRandom: boolean) => {
-    // TOUJOURS 6 cases, indépendamment du montant parié
-    const STAR_COUNT = 6;
+    // TOUJOURS 8 cases pour viser la cote 3.17, indépendamment du montant parié
+    const STAR_COUNT = 8;
 
     if (isRandom) {
-      // Mode aléatoire: générer 6 cases complètement aléatoires
+      // Mode aléatoire: générer 8 cases complètement aléatoires
       const suggested: number[] = [];
       while (suggested.length < STAR_COUNT) {
         const cell = Math.floor(Math.random() * 25);
@@ -112,7 +128,7 @@ export default function Dashboard({
         }
       }
       setCurrentPattern(null);
-      setAiSuggestions(suggested);
+      setAiSuggestions(ensureEightCells(suggested));
       return;
     }
 
@@ -140,7 +156,7 @@ export default function Dashboard({
       return cell;
     });
 
-    setAiSuggestions(variedCells);
+    setAiSuggestions(ensureEightCells(variedCells));
   };
 
   // Calculate consecutive losses and total amount lost from history
@@ -167,14 +183,12 @@ export default function Dashboard({
     state.sessionStartBalance - state.realBalance,
   );
 
-  // Martingale calculation: baseBet * (factor ^ losses)
-  const currentMartingaleBet = Math.round(
-    state.baseBet * Math.pow(state.martingaleFactor, consecutiveLosses),
-  );
+  // Mise uniforme: baseBet fixe pour tout le cycle, même après une perte
+  const currentFixedBet = state.baseBet || 200;
 
   const handleQuickLog = (type: "win" | "lose") => {
-    const amount = currentMartingaleBet;
-    const starCount = 6; // TOUJOURS 6 cases
+    const amount = currentFixedBet;
+    const starCount = 8; // TOUJOURS 8 cases pour la cote 3.17
     const multiplier = type === "win" ? MULTIPLIERS[starCount] : 1.0;
     const profit =
       type === "win" ? Math.floor(amount * multiplier - amount) : 0;
@@ -189,6 +203,8 @@ export default function Dashboard({
       multiplier,
       mines: 3,
     });
+    // Verrouille la prochaine prédiction pendant 90 secondes
+    onUpdateState({ nextPredictionAt: Date.now() + 90 * 1000 });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,6 +234,31 @@ export default function Dashboard({
   };
 
   const [timeLeft, setTimeLeft] = useState<string>("");
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+
+  const formatCooldown = (totalSeconds: number) => {
+    const clamped = Math.max(0, totalSeconds);
+    const minutes = Math.floor(clamped / 60);
+    const seconds = clamped % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const isPredictionLocked = cooldownLeft > 0;
+
+  useEffect(() => {
+    if (!state.nextPredictionAt) {
+      setCooldownLeft(0);
+      return;
+    }
+    const update = () => {
+      setCooldownLeft(
+        Math.max(0, Math.ceil((state.nextPredictionAt! - Date.now()) / 1000)),
+      );
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [state.nextPredictionAt]);
 
   useEffect(() => {
     // Initialize timer if not set but we are in a restricted time window
@@ -232,8 +273,8 @@ export default function Dashboard({
   }, []);
 
   useEffect(() => {
-    generateNewSuggestions(currentMartingaleBet, consecutiveLosses, useRandomPrediction);
-  }, [state.history.length, currentMartingaleBet, consecutiveLosses, useRandomPrediction]);
+    generateNewSuggestions(currentFixedBet, consecutiveLosses, useRandomPrediction);
+  }, [state.history.length, currentFixedBet, consecutiveLosses, useRandomPrediction]);
 
   useEffect(() => {
     if (!state.nextSessionStartTime) return;
@@ -306,11 +347,11 @@ export default function Dashboard({
         ).toFixed(1)
       : "0.0";
 
-  // Recovery Analysis - TOUJOURS 6 étoiles
-  const currentTargetStars = 6;
+  // Recovery Analysis - TOUJOURS 8 étoiles (cote 3.17)
+  const currentTargetStars = 8;
   const potentialGain =
-    Math.floor(currentMartingaleBet * MULTIPLIERS[currentTargetStars]) -
-    currentMartingaleBet;
+    Math.floor(currentFixedBet * MULTIPLIERS[currentTargetStars]) -
+    currentFixedBet;
   const recoveryNet = potentialGain - consecutiveLostAmount;
 
   // Calculate withdrawal eligibility
@@ -328,6 +369,11 @@ export default function Dashboard({
     : 0;
   
   const canWithdraw = !isWithdrawalBlocked && maxWithdrawableAmount > 0;
+
+  // Cases IA normalisées à 8 minimum pour l affichage de la capture
+  const safePredictionCells = prediction
+    ? ensureEightCells(prediction.recommendedCells || [])
+    : [];
 
   const totalProfitSinceReset = state.realBalance - state.initialRealBalance;
   const isDailyGoalReached = totalProfitSinceReset >= 3000;
@@ -434,7 +480,25 @@ export default function Dashboard({
           defaultCapital: newCapital,
           sessionsCompleted: 0,
           virtualBalance: 100000,
+          // Vide aussi les minuteurs, les verrous et les suivis, sinon
+          // l ancien état bloque encore l écran après le reset
+          nextPredictionAt: undefined,
+          nextSessionStartTime: undefined,
+          lastSessionEndTime: undefined,
+          stopLossActive: false,
+          stopLossRecoveredAt: undefined,
+          withdrawalHistory: [],
+          lastWithdrawalDate: undefined,
+          withdrawalCycleStart: newCapital,
+          withdrawalCycleGains: 0,
+          useRandomPrediction: false,
         });
+        // Vide aussi l affichage local (prédiction, stratégie, suggestions)
+        setPrediction(null);
+        setStrategy(null);
+        setAiSuggestions([]);
+        setCurrentPattern(null);
+        setUseRandomPrediction(false);
       }
     }
   };
@@ -957,7 +1021,7 @@ export default function Dashboard({
               <p className="text-sm font-bold text-white uppercase">
                 {currentPattern ? currentPattern.name : "Analyse..."}{" "}
                 <span className="text-[10px] text-indigo-400 font-mono">
-                  (6 Cases)
+                  (8 Cases)
                 </span>
               </p>
               {consecutiveLosses > 0 && (
@@ -977,65 +1041,53 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* Martingale Sequence Display */}
+        {/* Mise Uniforme du Cycle */}
         <div className="mb-6">
           <p className="text-[9px] text-[#4a5578] uppercase font-mono mb-3 tracking-widest">
-            Séquence Martingale (Mises)
+            Mise Uniforme du Cycle
           </p>
-          <div className="grid grid-cols-4 gap-2">
-            {[0, 1, 2, 3].map((index) => {
-              const stepMise = Math.round(
-                state.baseBet * Math.pow(state.martingaleFactor, index),
-              );
-              // Calculate cumulative loss for this step
-              let cumulativeLoss = 0;
-              for (let i = 0; i <= index; i++) {
-                cumulativeLoss += Math.round(
-                  state.baseBet * Math.pow(state.martingaleFactor, i),
-                );
-              }
-
-              const isActive = consecutiveLosses === index;
-              const isPast = consecutiveLosses > index;
-              return (
-                <div
-                  key={index}
-                  className={`flex flex-col items-center py-2 rounded-xl border transition-all text-center ${
-                    isActive
-                      ? "bg-amber-400/10 border-amber-400 text-amber-400 scale-105 shadow-lg shadow-amber-400/10"
-                      : isPast
-                        ? "bg-rose-500/5 border-rose-500/20 text-rose-500/50"
-                        : "bg-[#0e1220] border-[#252d45] text-[#4a5578]"
-                  }`}
-                >
-                  <p className="text-xs font-bold">
-                    {stepMise.toLocaleString()}
-                  </p>
-                  <p className="text-[7px] font-mono uppercase opacity-50">
-                    Cumul: -{cumulativeLoss.toLocaleString()}
-                  </p>
-                  <p className="text-[7px] font-mono uppercase opacity-70">
-                    Mise {index + 1}
-                  </p>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-amber-400/10 border-amber-400 text-amber-400">
+              <p className="text-xs font-bold">
+                {currentFixedBet.toLocaleString()}
+              </p>
+              <p className="text-[7px] font-mono uppercase opacity-70">
+                Mise Fixe
+              </p>
+            </div>
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-[#0e1220] border-[#252d45] text-[#4a5578]">
+              <p className="text-xs font-bold text-rose-400">
+                -{consecutiveLostAmount.toLocaleString()}
+              </p>
+              <p className="text-[7px] font-mono uppercase opacity-70">
+                Perte Cumulée
+              </p>
+            </div>
+            <div className="flex flex-col items-center py-2 rounded-xl border transition-all text-center bg-[#0e1220] border-[#252d45] text-[#4a5578]">
+              <p className={`text-xs font-bold ${currentSessionProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {currentSessionProfit >= 0 ? "+" : ""}
+                {currentSessionProfit.toLocaleString()}
+              </p>
+              <p className="text-[7px] font-mono uppercase opacity-70">
+                Profit Session
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Mise Conseillée */}
+        {/* Mise Fixe */}
         <div className="bg-gradient-to-br from-[#1c2235] to-[#0e1220] rounded-2xl p-6 border border-white/5 text-center mb-6 shadow-inner">
           <p className="text-[10px] text-[#4a5578] uppercase tracking-[0.2em] mb-2">
-            Mise Conseillée
+            Mise Fixe
           </p>
           <p className="text-4xl font-extrabold text-white tracking-tighter">
-            {currentMartingaleBet.toLocaleString()}{" "}
+            {currentFixedBet.toLocaleString()}{" "}
             <span className="text-sm font-normal text-[#4a5578]">F</span>
           </p>
           <p className="text-[9px] text-[#4a5578] mt-2 font-mono">
             {consecutiveLosses === 0
-              ? "Mise de base — aucune perte"
-              : `Récupération x${state.martingaleFactor} (${consecutiveLosses} pertes)`}
+              ? "Mise uniforme, aucune montée"
+              : `Mise inchangée malgré ${consecutiveLosses} perte${consecutiveLosses > 1 ? "s" : ""}`}
           </p>
         </div>
 
@@ -1109,7 +1161,7 @@ export default function Dashboard({
                 const newMode = !useRandomPrediction;
                 setUseRandomPrediction(newMode);
                 onUpdateState({ useRandomPrediction: newMode });
-                generateNewSuggestions(currentMartingaleBet, consecutiveLosses, newMode);
+                generateNewSuggestions(currentFixedBet, consecutiveLosses, newMode);
               }}
               className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border transition-all ${
                 useRandomPrediction 
@@ -1150,6 +1202,21 @@ export default function Dashboard({
             </div>
           )}
 
+          {isPredictionLocked ? (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <div className="w-full py-5 rounded-2xl bg-[#0e1220] border border-amber-400/30 flex flex-col items-center justify-center">
+                <p className="text-[10px] text-[#4a5578] uppercase tracking-widest mb-1">
+                  Prochaine prédiction dans
+                </p>
+                <p className="text-2xl font-mono font-bold text-amber-400">
+                  {formatCooldown(cooldownLeft)}
+                </p>
+                <p className="text-[9px] text-[#4a5578] mt-2">
+                  Pause de 1 minute 30 après chaque tour
+                </p>
+              </div>
+            </div>
+          ) : (
           <div className="flex flex-col items-center gap-4">
             <div className="grid grid-cols-5 gap-1 bg-black/20 p-2 rounded-xl border border-white/5">
               {[...Array(25)].map((_, i) => (
@@ -1166,6 +1233,7 @@ export default function Dashboard({
               ))}
             </div>
           </div>
+          )}
 
           {consecutiveLosses >= 2 && (
             <div className="bg-amber-400/5 border border-amber-400/20 rounded-xl p-3 mt-4">
@@ -1202,8 +1270,8 @@ export default function Dashboard({
           ) : (
             <div className="text-center py-2">
               <p className="text-[10px] text-[#4a5578]">
-                Suggestions basées sur la mise actuelle ({currentMartingaleBet}{" "}
-                F)
+                Suggestions basées sur la mise fixe ({currentFixedBet}{" "}
+                F) pour 8 cases, cote 3.17
               </p>
             </div>
           )}
@@ -1248,12 +1316,12 @@ export default function Dashboard({
                   <div
                     key={i}
                     className={`w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-bold transition-all duration-500 ${
-                      prediction.recommendedCells.includes(i)
+                      safePredictionCells.includes(i)
                         ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
                         : "bg-[#252d45] text-[#4a5578]"
                     }`}
                   >
-                    {prediction.recommendedCells.includes(i) ? "⭐" : i}
+                    {safePredictionCells.includes(i) ? "⭐" : i}
                   </div>
                 ))}
               </div>
@@ -1271,7 +1339,7 @@ export default function Dashboard({
                     Cases Sûres
                   </p>
                   <p className="text-sm font-bold text-blue-400">
-                    {prediction.recommendedCells.length}
+                    {safePredictionCells.length}
                   </p>
                 </div>
               </div>
